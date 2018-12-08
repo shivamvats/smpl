@@ -202,7 +202,9 @@ int BfsHeuristic::GetGoalHeuristic(int state_id)
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
 
-    return getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+    int heuristic = getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+    SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
+    return heuristic;
 }
 
 int BfsHeuristic::GetStartHeuristic(int state_id)

@@ -83,6 +83,7 @@ public:
     int GetStartHeuristic(int state_id) override;
     int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
+    void syncGridAndBfs();
 
 private:
 
@@ -102,7 +103,6 @@ private:
     };
     std::vector<CellCoord> m_goal_cells;
 
-    void syncGridAndBfs();
     int getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const;
 };
 
