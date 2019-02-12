@@ -8,5 +8,7 @@
 #include <smpl_urdf_robot_model/robot_state_visualization.h>
 #include <smpl_urdf_robot_model/urdf_robot_model.h>
 
+// Header to include RobotModel and URDFRobotModel.
+
 #endif
 

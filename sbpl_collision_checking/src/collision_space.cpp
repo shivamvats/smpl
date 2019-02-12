@@ -613,7 +613,7 @@ void CollisionSpace::updateState(
     std::vector<double>& state,
     const std::vector<double>& vals)
 {
-    assert(vals.size() == m_planning_joint_to_collision_model_indices.size());
+    //assert(vals.size() == m_planning_joint_to_collision_model_indices.size());
     updateState(state, vals.data());
 }
 

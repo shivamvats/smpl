@@ -90,7 +90,7 @@ bool Init(
     world_joint.name = "map";
     world_joint.origin = Eigen::Affine3d::Identity(); // IMPORTANT
     world_joint.axis = Eigen::Vector3d::Zero();
-    world_joint.type = urdf::JointType::Floating;
+    world_joint.type = urdf::JointType::Fixed;
     if (!urdf::InitRobotModel(
             &model->m_robot_model, &model->m_urdf, &world_joint))
     {
@@ -109,6 +109,14 @@ bool Init(
         ROS_ERROR("Failed to fetch the KDL chain for the robot. (root: %s, tip: %s)", base_link.c_str(), tip_link.c_str());
         return false;
     }
+    /*
+    KDL::Chain world_chain;
+    KDL::Segment s = Segment(Joint(Joint::RotX),
+                Frame(Rotation::RPY(0.0,M_PI/4,0.0),
+                          Vector(0.1,0.2,0.3) )
+                    );
+    world_chain.addSegment()
+    */
     model->m_base_link = base_link;
     model->m_tip_link = tip_link;
     model->m_kinematics_link = GetLink(&model->m_robot_model, &base_link);
@@ -123,7 +131,7 @@ bool Init(
         auto& child_joint_name = segment.getJoint().getName();
         auto* joint = GetJoint(&model->m_robot_model, &child_joint_name);
         if (GetVariableCount(joint) > 1) {
-            ROS_WARN("> 1 variable per joint");
+            ROS_WARN("> 1 variable per joint.");
             return false;
         }
         if (GetVariableCount(joint) == 0) {

@@ -855,7 +855,7 @@ bool ExtractGoalPoseFromGoalConstraints(
     Eigen::Affine3d& goal_pose)
 {
     assert(!constraints.position_constraints.empty() &&
-            constraints.orientation_constraints.empty());
+           !constraints.orientation_constraints.empty());
 
     // TODO: where is it enforced that the goal position/orientation constraints
     // should be for the planning link?
