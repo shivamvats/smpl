@@ -58,11 +58,13 @@ public:
         const moveit::core::RobotState& ref_state,
         const planning_scene::PlanningSceneConstPtr& scene);
 
+    void setPathConstraints(const moveit_msgs::Constraints& path_constraints);
+
     bool initialized() const;
 
     /// \name Required Functions from Extension
     ///@{
-    smpl::Extension* getExtension(size_t class_code) override;
+    auto getExtension(size_t class_code) -> smpl::Extension* override;
     ///@}
 
     /// \name Required Functions from CollisionChecker
@@ -102,6 +104,9 @@ private:
     std::vector<smpl::RobotState> m_waypoint_path;
 
     bool m_enabled_ccd;
+
+    moveit_msgs::Constraints m_path_constraints;
+    bool m_has_path_constraints = false;
 
     auto checkContinuousCollision(
         const smpl::RobotState& start,

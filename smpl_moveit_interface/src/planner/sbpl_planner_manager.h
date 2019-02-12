@@ -14,49 +14,50 @@ namespace sbpl_interface {
 
 MOVEIT_CLASS_FORWARD(SBPLPlanningContext);
 
+using MotionPlanRequest = planning_interface::MotionPlanRequest;
+using PlanningContextPtr = planning_interface::PlanningContextPtr;
+using PlannerConfigurationMap = planning_interface::PlannerConfigurationMap;
+using PlannerConfigurationSettings = planning_interface::PlannerConfigurationSettings;
+
 class SBPLPlannerManager : public planning_interface::PlannerManager
 {
 public:
 
     static const std::string DefaultPlanningAlgorithm;
 
-    typedef planning_interface::PlannerManager Base;
+    using Base = planning_interface::PlannerManager;
 
     SBPLPlannerManager();
     virtual ~SBPLPlannerManager();
 
-    /// \name planning_interface::PlannerManager API Requirements
+    /// \name planning_interface::PlannerManager Interface
     ///@{
 
     /// \sa planning_interface::PlannerManager::initialize()
-    virtual bool initialize(
+    bool initialize(
         const robot_model::RobotModelConstPtr& model,
         const std::string& ns) override;
 
     /// \sa planning_interface::PlannerManger::getDescription()
-    virtual std::string getDescription() const;
+    auto getDescription() const -> std::string override;
 
     /// \sa planning_interface::PlannerManager:::getPlanningAlgorithms()
-    virtual void getPlanningAlgorithms(
-        std::vector<std::string>& algs) const override;
+    void getPlanningAlgorithms(std::vector<std::string>& algs) const override;
 
     /// \sa planning_interface::PlannerManager::getPlanningContext()
-    virtual planning_interface::PlanningContextPtr getPlanningContext(
+    auto getPlanningContext(
         const planning_scene::PlanningSceneConstPtr& planning_scene,
-        const planning_interface::MotionPlanRequest& req,
-        moveit_msgs::MoveItErrorCodes& error_code) const override;
+        const MotionPlanRequest& req,
+        moveit_msgs::MoveItErrorCodes& error_code) const
+        -> PlanningContextPtr override;
 
     /// \sa planning_interface::PlannerManager::canServiceRequest()
-    virtual bool canServiceRequest(
-        const planning_interface::MotionPlanRequest& req) const override;
+    bool canServiceRequest(const MotionPlanRequest& req) const override;
 
     /// \sa planning_interface::PlannerManager::setPlannerConfigurations()
-    virtual void setPlannerConfigurations(
-        const planning_interface::PlannerConfigurationMap& pcs) override;
+    void setPlannerConfigurations(const PlannerConfigurationMap& pcs) override;
 
     ///@}
-
-private:
 
     moveit::core::RobotModelConstPtr m_robot_model;
 
@@ -69,42 +70,7 @@ private:
 
     smpl::VisualizerROS m_viz;
 
-    planning_interface::PlannerConfigurationMap map;
-
-    void logPlanningScene(const planning_scene::PlanningScene& scene) const;
-
-    /// \name Parameter Loading
-    ///@{
-
-    bool loadPlannerConfigurationMapping(
-        const ros::NodeHandle& nh,
-        const moveit::core::RobotModel& model);
-
-    // key/value pairs for parameters to pass down to planner
-    typedef std::map<std::string, std::string> PlannerSettings;
-
-    // config name -> (string -> string)
-    typedef std::map<std::string, PlannerSettings> PlannerSettingsMap;
-
-    bool loadSettingsMap(
-        const ros::NodeHandle& nh,
-        const std::string& param_name,
-        PlannerSettingsMap& settings);
-    ///@}
-
-    // retrive an already-initialized model for a given group
-    auto getModelForGroup(const std::string& group_name)
-        -> MoveItRobotModel*;
-
-    auto getPlanningContextForPlanner(
-        MoveItRobotModel* model,
-        const std::string& config)
-        -> SBPLPlanningContextPtr;
-
-    std::string selectPlanningLink(
-        const planning_interface::MotionPlanRequest& req) const;
-
-    bool xmlToString(XmlRpc::XmlRpcValue& value, std::string& out) const;
+    PlannerConfigurationMap map;
 };
 
 MOVEIT_CLASS_FORWARD(SBPLPlannerManager);

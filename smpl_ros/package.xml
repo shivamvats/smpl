@@ -11,6 +11,7 @@
 
     <depend>boost</depend>
     <depend>eigen</depend>
+    <depend>eigen_conversions</depend>
     <depend>leatherman</depend>
     <depend>moveit_core</depend>
     <depend>moveit_msgs</depend>

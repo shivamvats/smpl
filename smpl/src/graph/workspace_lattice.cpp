@@ -168,9 +168,8 @@ bool WorkspaceLattice::setStart(const RobotState& state)
 
     SMPL_DEBUG_STREAM_NAMED(G_LOG, "  coord: " << start_coord);
 
-    m_start_state_id = createState(start_coord);
+    m_start_state_id = getOrCreateState(start_coord, state);
     m_start_entry = getState(m_start_state_id);
-    m_start_entry->state = state;
 
     return RobotPlanningSpace::setStart(state);
 }
@@ -378,9 +377,8 @@ void WorkspaceLattice::GetSuccs(
         stateWorkspaceToCoord(final_state, succ_coord);
 
         // check if hash entry already exists, if not then create one
-        auto succ_id = createState(succ_coord);
+        auto succ_id = getOrCreateState(succ_coord, final_rstate);
         auto* succ_state = getState(succ_id);
-        succ_state->state = final_rstate;
 
         // check if this state meets the goal criteria
         auto is_goal_succ = isGoal(final_state, final_rstate);
@@ -480,9 +478,8 @@ void WorkspaceLattice::GetLazySuccs(
         stateWorkspaceToCoord(final_state, succ_coord);
 
         // check if hash entry already exists, if not then create one
-        int succ_id = createState(succ_coord);
-        WorkspaceLatticeState* succ_state = getState(succ_id);
-        succ_state->state = final_rstate;
+        auto succ_id = getOrCreateState(succ_coord, final_rstate);
+        auto* succ_state = getState(succ_id);
 
         // check if this state meets the goal criteria
         auto is_goal_succ = isGoal(final_state, final_rstate);
@@ -657,6 +654,35 @@ WorkspaceLatticeState* WorkspaceLattice::getState(int state_id) const
 {
     assert(state_id >= 0 && state_id < m_states.size());
     return m_states[state_id];
+}
+
+int WorkspaceLattice::getOrCreateState(
+    const WorkspaceCoord& coord,
+    const RobotState& robot_state)
+{
+    auto state = smpl::WorkspaceLatticeState();
+    state.coord = coord;
+    auto sit = this->m_state_to_id.find(&state);
+    if (sit != this->m_state_to_id.end()) {
+        return sit->second;
+    }
+
+    auto new_id = (int)this->m_states.size();
+
+    // create a new entry
+    auto* state_entry = new smpl::WorkspaceLatticeState(state);
+
+    // map id <-> state
+    this->m_states.push_back(state_entry);
+    this->m_state_to_id[state_entry] = new_id;
+
+    int* indices = new int[NUMOFINDICES_STATEID2IND];
+    std::fill(indices, indices + NUMOFINDICES_STATEID2IND, -1);
+    this->StateID2IndexMapping.push_back(indices);
+
+    this->m_states[new_id]->state = robot_state;
+
+    return new_id;
 }
 
 bool WorkspaceLattice::isGoal(

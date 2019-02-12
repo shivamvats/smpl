@@ -146,13 +146,12 @@ private:
     void MakeGUI();
     void InitPostModel();
 
-    QGroupBox* setupGeneralSettingsGroup();
-    QGroupBox* setupPlannerSettingsGroup();
-    QGroupBox* setupGoalConstraintsGroup();
-    QGroupBox* setupCommandsGroup();
+    auto setupGeneralSettingsGroup() -> QGroupBox*;
+    auto setupPlannerSettingsGroup() -> QGroupBox*;
+    auto setupGoalConstraintsGroup() -> QGroupBox*;
+    auto setupCommandsGroup() -> QGroupBox*;
 
-    void syncPlannerNameComboBox();
-    void syncPlannerIdComboBox();
+    void syncPlannerSelection();
     void syncNumPlanningAttemptsSpinBox();
     void syncAllowedPlanningTimeSpinBox();
     void syncGoalPositionToleranceSpinBox();
@@ -160,14 +159,14 @@ private:
     void syncGoalJointToleranceSpinBox();
     void syncWorkspaceWidgets();
 
-    visualization_msgs::MarkerArray getWorkspaceVisualization() const;
+    auto getWorkspaceVisualization() const -> visualization_msgs::MarkerArray;
     void getRobotCollisionMarkers(
         visualization_msgs::MarkerArray& ma,
         const moveit::core::RobotState& state,
         const std::vector<std::string>& link_names,
         bool include_attached = false) const;
 
-    QVBoxLayout* mainLayout();
+    auto mainLayout() -> QVBoxLayout*;
 };
 
 } // namespace sbpl_interface

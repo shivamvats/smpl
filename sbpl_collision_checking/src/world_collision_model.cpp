@@ -38,6 +38,7 @@
 // system includes
 #include <eigen_conversions/eigen_msg.h>
 #include <leatherman/utils.h>
+#include <ros/console.h>
 
 // project includes
 #include <sbpl_collision_checking/voxel_operations.h>

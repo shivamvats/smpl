@@ -59,8 +59,6 @@ public:
     /// before this initialization is possible.
     bool init(const std::map<std::string, std::string>& config);
 
-private:
-
     // sbpl planner components
     MoveItRobotModel* m_robot_model;
     std::unique_ptr<MoveItCollisionChecker> m_collision_checker;
@@ -83,20 +81,6 @@ private:
 
     moveit_msgs::WorkspaceParameters m_prev_workspace;
     planning_scene::PlanningSceneConstPtr m_prev_scene;
-
-    /// \brief Initialize SBPL constructs
-    /// \param[out] Reason for failure if initialization is unsuccessful
-    /// \return true if successful; false otherwise
-    bool updatePlanner(
-        const planning_scene::PlanningSceneConstPtr& scene,
-        const moveit::core::RobotState& start_state,
-        const moveit_msgs::WorkspaceParameters& workspace);
-
-    auto updateOrCreateGrid(
-        std::unique_ptr<smpl::OccupancyGrid> grid,
-        const planning_scene::PlanningSceneConstPtr& scene,
-        const moveit_msgs::WorkspaceParameters& workspace)
-        -> std::unique_ptr<smpl::OccupancyGrid>;
 };
 
 MOVEIT_CLASS_FORWARD(SBPLPlanningContext);

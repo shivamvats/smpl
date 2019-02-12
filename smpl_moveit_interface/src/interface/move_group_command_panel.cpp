@@ -77,7 +77,7 @@ void MoveGroupCommandPanel::save(rviz::Config config) const
 
 void MoveGroupCommandPanel::loadRobot()
 {
-    std::string user_robot_description =
+    auto user_robot_description =
             m_robot_description_line_edit->text().toStdString();
 
     if (user_robot_description.empty()) {
@@ -112,7 +112,7 @@ void MoveGroupCommandPanel::updateRobot()
 
 void MoveGroupCommandPanel::updateTransforms()
 {
-    QString workspace_frame = m_workspace_frame_combo_box->currentText();
+    auto workspace_frame = m_workspace_frame_combo_box->currentText();
 
     m_workspace_frame_combo_box->clear();
     for (auto& frame : m_model.availableFrames()) {
@@ -126,8 +126,7 @@ void MoveGroupCommandPanel::updateTransforms()
     else {
         // select the previously selected item
         for (int i = 0; i < m_workspace_frame_combo_box->count(); ++i) {
-            const std::string text =
-                    m_workspace_frame_combo_box->itemText(i).toStdString();
+            auto text = m_workspace_frame_combo_box->itemText(i).toStdString();
             if (text == workspace_frame.toStdString()) {
                 m_workspace_frame_combo_box->setCurrentIndex(i);
                 break;
@@ -144,8 +143,9 @@ void MoveGroupCommandPanel::syncRobot()
 
 void MoveGroupCommandPanel::syncModelConfig()
 {
-    syncPlannerNameComboBox();
-    syncPlannerIdComboBox();
+    ROS_DEBUG_NAMED(LOG, "Sync model configuration");
+
+    syncPlannerSelection();
     syncNumPlanningAttemptsSpinBox();
     syncAllowedPlanningTimeSpinBox();
 
@@ -251,6 +251,7 @@ void MoveGroupCommandPanel::MakeGUI()
 // Initialize the GUI after the model has been initialized
 void MoveGroupCommandPanel::InitPostModel()
 {
+#if 0
     // add all planner names as items in the combo box
     auto& planner_interfaces = m_model.plannerInterfaces();
     for (auto& planner_interface : planner_interfaces) {
@@ -272,16 +273,7 @@ void MoveGroupCommandPanel::InitPostModel()
             m_planner_id_combo_box->addItem(QString::fromStdString(planner_id));
         }
     }
-
-//    syncPlannerNameComboBox();
-//    syncPlannerIdComboBox();
-//
-//    syncNumPlanningAttemptsSpinBox();
-//    syncAllowedPlanningTimeSpinBox();
-//
-//    syncGoalJointToleranceSpinBox();
-//    syncGoalPositionToleranceSpinBox();
-//    syncGoalOrientationToleranceSpinBox();
+#endif
 
     for (auto& frame : m_model.availableFrames()) {
         m_workspace_frame_combo_box->addItem(QString::fromStdString(frame));
@@ -457,8 +449,8 @@ QGroupBox* MoveGroupCommandPanel::setupGoalConstraintsGroup()
 
 QGroupBox* MoveGroupCommandPanel::setupCommandsGroup()
 {
-    QGroupBox* commands_group_box = new QGroupBox(tr("Commands"));
-    QVBoxLayout* commands_group_layout = new QVBoxLayout;
+    auto* commands_group_box = new QGroupBox(tr("Commands"));
+    auto* commands_group_layout = new QVBoxLayout;
 
     m_plan_to_position_button = new QPushButton(tr("Plan to Position"));
     m_move_to_position_button = new QPushButton(tr("Move to Position"));
@@ -476,11 +468,52 @@ QGroupBox* MoveGroupCommandPanel::setupCommandsGroup()
     return commands_group_box;
 }
 
-void MoveGroupCommandPanel::syncPlannerNameComboBox()
+void MoveGroupCommandPanel::syncPlannerSelection()
 {
-    assert(m_planner_name_combo_box);
+    ROS_DEBUG_NAMED(LOG, "Update available planners");
+
+    disconnect(
+            m_planner_name_combo_box, SIGNAL(currentIndexChanged(const QString&)),
+            this, SLOT(setCurrentPlanner(const QString&)));
+    disconnect(
+            m_planner_id_combo_box, SIGNAL(currentIndexChanged(const QString&)),
+            this, SLOT(setCurrentPlannerID(const QString&)));
+
+    m_planner_id_combo_box->clear();
+    m_planner_name_combo_box->clear();
+
+    // remove entries that no longer exist, add entries that didn't exist before.
+    // change the selected item so that the index is consistent with the
+    // option's new position
+
+    // add all planner names as items in the combo box
+    auto& planner_interfaces = m_model.plannerInterfaces();
+    for (auto& planner_interface : planner_interfaces) {
+        auto& planner_name = planner_interface.name;
+        m_planner_name_combo_box->addItem(QString::fromStdString(planner_name));
+    }
+
+    auto planner_name = m_model.plannerName();
+    auto planner_id = m_model.plannerID();
+
+    // add all planner ids part of the current planner as items in the combo box
+    if (planner_name != "UNKNOWN") {
+        auto pidx = 0;
+        for (; (int)pidx < planner_interfaces.size(); ++pidx) {
+            if (planner_interfaces[pidx].name == planner_name) {
+                break;
+            }
+        }
+
+        for (auto& planner_id : planner_interfaces[pidx].planner_ids) {
+            m_planner_id_combo_box->addItem(QString::fromStdString(planner_id));
+        }
+    }
+
+    ROS_DEBUG_NAMED(LOG, "Sync planner name combo box");
+
+    assert(m_planner_name_combo_box != NULL);
     // set the selected item to match the current planner
-    const std::string planner_name = m_model.plannerName();
     for (int i = 0; i < m_planner_name_combo_box->count(); ++i) {
         if (m_planner_name_combo_box->itemText(i).toStdString() ==
                 planner_name)
@@ -489,19 +522,22 @@ void MoveGroupCommandPanel::syncPlannerNameComboBox()
             break;
         }
     }
-}
 
-void MoveGroupCommandPanel::syncPlannerIdComboBox()
-{
-    assert(m_planner_id_combo_box);
+    ROS_DEBUG_NAMED(LOG, "Sync planner id combo box");
+
+    assert(m_planner_id_combo_box != NULL);
     // set the selected item to match the current planner id
-    const std::string planner_id = m_model.plannerID();
-    for (int i = 0; i < m_planner_id_combo_box->count(); ++i) {
+    for (auto i = 0; i < m_planner_id_combo_box->count(); ++i) {
         if (m_planner_id_combo_box->itemText(i).toStdString() == planner_id) {
             m_planner_id_combo_box->setCurrentIndex(i);
             break;
         }
     }
+
+    connect(m_planner_name_combo_box, SIGNAL(currentIndexChanged(const QString&)),
+            this, SLOT(setCurrentPlanner(const QString&)));
+    connect(m_planner_id_combo_box, SIGNAL(currentIndexChanged(const QString&)),
+            this, SLOT(setCurrentPlannerID(const QString&)));
 }
 
 void MoveGroupCommandPanel::syncNumPlanningAttemptsSpinBox()
@@ -572,8 +608,8 @@ void MoveGroupCommandPanel::updateRobotVisualization()
     assert(robot_model && "Robot Model must be loaded before visualization");
     assert(robot_state != NULL && "Robot State must be initialized before visualization");
 
-    const bool collision_markers = true;
-    const bool include_attached = true;
+    auto collision_markers = true;
+    auto include_attached = true;
     visualization_msgs::MarkerArray ma;
     if (collision_markers) {
          getRobotCollisionMarkers(
@@ -584,7 +620,7 @@ void MoveGroupCommandPanel::updateRobotVisualization()
                 ma, robot_model->getLinkModelNames(), include_attached);
     }
 
-    const std::string ns = robot_model->getName() + std::string("_command");
+    auto ns = robot_model->getName() + std::string("_command");
     int id = 0;
     for (auto& marker : ma.markers) {
         marker.mesh_use_embedded_materials = false;
@@ -614,14 +650,14 @@ void MoveGroupCommandPanel::updateRobotVisualization()
 
     int cid = 0;
     for (auto& contact : m_model.contacts()) {
-        const double arrow_len = 1.0;
-        const Eigen::Vector3d arrow_pos =
+        auto arrow_len = 1.0;
+        auto arrow_pos =
                 Eigen::Vector3d(
                         contact.position.x,
                         contact.position.y,
                         contact.position.z) +
                 Eigen::Vector3d(0, 0, arrow_len);
-        const Eigen::Affine3d arrow_transform(
+        auto arrow_transform = Eigen::Affine3d(
                 Eigen::Translation3d(arrow_pos) *
                 Eigen::AngleAxisd(M_PI / 2.0, Eigen::Vector3d::UnitY()));
 
@@ -915,9 +951,9 @@ void MoveGroupCommandPanel::getRobotCollisionMarkers(
 
 QVBoxLayout* MoveGroupCommandPanel::mainLayout()
 {
-    QVBoxLayout* parent_layout = qobject_cast<QVBoxLayout*>(layout());
-    QScrollArea* scroll_area = qobject_cast<QScrollArea*>(parent_layout->itemAt(0)->widget());
-    QVBoxLayout* main_layout = qobject_cast<QVBoxLayout*>(scroll_area->widget()->layout());
+    auto* parent_layout = qobject_cast<QVBoxLayout*>(layout());
+    auto* scroll_area = qobject_cast<QScrollArea*>(parent_layout->itemAt(0)->widget());
+    auto* main_layout = qobject_cast<QVBoxLayout*>(scroll_area->widget()->layout());
     return main_layout;
 }
 

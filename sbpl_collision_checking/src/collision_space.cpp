@@ -43,9 +43,12 @@
 #include <geometric_shapes/shape_operations.h>
 #include <leatherman/print.h>
 #include <leatherman/viz.h>
+#include <ros/console.h>
 #include <smpl/angles.h>
 #include <smpl/debug/marker_conversions.h>
+#include <urdf/model.h>
 
+// project includes
 #include <sbpl_collision_checking/shapes.h>
 
 namespace smpl {

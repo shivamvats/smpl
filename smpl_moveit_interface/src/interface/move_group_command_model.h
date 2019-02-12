@@ -98,8 +98,8 @@ public:
 
     /// \name Planner Settings
     ///@{
-    auto plannerName() const -> const std::string;
-    auto plannerID() const -> const std::string;
+    auto plannerName() const ->  std::string;
+    auto plannerID() const -> std::string;
     int  numPlanningAttempts() const;
     auto allowedPlanningTime() const -> double;
     ///@}
@@ -132,6 +132,7 @@ public Q_SLOTS:
     void setGoalPositionTolerance(double tol_m);
     void setGoalOrientationTolerance(double tol_deg);
     void setWorkspace(const moveit_msgs::WorkspaceParameters& ws);
+    void updatePlannerInterfaces();
 
 Q_SIGNALS:
 
@@ -195,6 +196,11 @@ private:
     std::unique_ptr<MoveGroupActionClient> m_move_group_client;
     ///@}
 
+    // Set of available planning libraries and planning algorithms from each
+    // library. If we have a set of valid planner interfaces, these indices
+    // must reference a valid selection from this set. If we haven't yet
+    // received a description of available planners, these indices may be
+    // represent indices from a previous run.
     std::vector<moveit_msgs::PlannerInterfaceDescription> m_planner_interfaces;
     int m_curr_planner_idx = -1;
     int m_curr_planner_id_idx = -1;

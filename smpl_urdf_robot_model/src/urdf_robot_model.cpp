@@ -134,6 +134,7 @@ bool URDFRobotModel::checkJointLimits(
     const smpl::RobotState& state,
     bool verbose)
 {
+    UpdateState(this, &state);
     for (auto i = 0; i < this->jointVariableCount(); ++i) {
         auto* var = GetVariable(this->robot_model, this->planning_to_state_variable[i]);
         if (!SatisfiesBounds(&this->robot_state, var)) {

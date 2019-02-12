@@ -160,6 +160,7 @@ struct WorkspaceLattice :
     int reserveHashEntry();
     int createState(const WorkspaceCoord& coord);
     auto getState(int state_id) const -> WorkspaceLatticeState*;
+    int getOrCreateState(const WorkspaceCoord& coord, const RobotState& state);
 
     bool checkAction(
         const RobotState& state,

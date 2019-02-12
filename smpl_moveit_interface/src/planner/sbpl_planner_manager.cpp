@@ -38,7 +38,8 @@ namespace sbpl_interface {
 // pp = planning plugin
 static const char* PP_LOGGER = "planning";
 
-void LogMotionPlanRequest(const planning_interface::MotionPlanRequest& req)
+static
+void LogMotionPlanRequest(const MotionPlanRequest& req)
 {
     ROS_DEBUG_NAMED(PP_LOGGER, "Motion Plan Request");
 
@@ -157,228 +158,8 @@ void LogMotionPlanRequest(const planning_interface::MotionPlanRequest& req)
     ROS_DEBUG_NAMED(PP_LOGGER, "  max_velocity_scaling_factor: %f", req.max_velocity_scaling_factor);
 }
 
-SBPLPlannerManager::SBPLPlannerManager() :
-    Base(),
-    m_robot_model(),
-    m_viz()
-{
-    ROS_DEBUG_NAMED(PP_LOGGER, "Constructed SBPL Planner Manager");
-    smpl::viz::set_visualizer(&m_viz);
-}
-
-SBPLPlannerManager::~SBPLPlannerManager()
-{
-    ROS_DEBUG_NAMED(PP_LOGGER, "Destructed SBPL Planner Manager");
-    if (smpl::viz::visualizer() == &m_viz) {
-        smpl::viz::unset_visualizer();
-    }
-}
-
-bool SBPLPlannerManager::initialize(
-    const robot_model::RobotModelConstPtr& model,
-    const std::string& ns)
-{
-    ROS_INFO_NAMED(PP_LOGGER, "Initialize SBPL Planner Manager");
-    ROS_INFO_NAMED(PP_LOGGER, "  Robot Model: %s", model->getName().c_str());
-    ROS_INFO_NAMED(PP_LOGGER, "  Namespace: %s", ns.c_str());
-
-    m_robot_model = model;
-
-    ros::NodeHandle nh(ns);
-    if (!loadPlannerConfigurationMapping(nh, *model)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load planner configurations");
-        return false;
-    }
-
-    ROS_INFO_NAMED(PP_LOGGER, "Initialized SBPL Planner Manager");
-    return true;
-}
-
-auto SBPLPlannerManager::getDescription() const -> std::string
-{
-    return "Search-Based Planning Algorithms";
-}
-
-void SBPLPlannerManager::getPlanningAlgorithms(
-    std::vector<std::string>& algs) const
-{
-    auto& configs = getPlannerConfigurations();
-    for (auto& entry : configs) {
-        if (entry.first.find('[') != std::string::npos) {
-            algs.push_back(entry.first);
-        }
-    }
-}
-
-auto SBPLPlannerManager::getPlanningContext(
-    const planning_scene::PlanningSceneConstPtr& planning_scene,
-    const planning_interface::MotionPlanRequest& req,
-    moveit_msgs::MoveItErrorCodes& error_code) const
-    -> planning_interface::PlanningContextPtr
-{
-    ROS_DEBUG_NAMED(PP_LOGGER, "Get SBPL Planning Context");
-
-    LogMotionPlanRequest(req);
-
-    planning_interface::PlanningContextPtr null_context;
-
-    if (!canServiceRequest(req)) {
-        ROS_WARN_NAMED(PP_LOGGER, "Unable to service request");
-        return null_context;
-    }
-
-    if (!planning_scene) {
-        ROS_WARN_NAMED(PP_LOGGER, "Planning Scene is null");
-        return null_context;
-    }
-
-    ////////////////////////////////////////
-    // Initialize/Update SBPL Robot Model //
-    ////////////////////////////////////////
-
-    auto* mutable_me = const_cast<SBPLPlannerManager*>(this);
-    auto* sbpl_model = mutable_me->getModelForGroup(req.group_name);
-    if (!sbpl_model) {
-        ROS_WARN_NAMED(PP_LOGGER, "No SBPL Robot Model available for group '%s'", req.group_name.c_str());
-        return null_context;
-    }
-
-    auto planning_link = selectPlanningLink(req);
-    if (planning_link.empty()) {
-        ROS_INFO_NAMED(PP_LOGGER, "Clear the planning link");
-    } else {
-        ROS_INFO_NAMED(PP_LOGGER, "Set planning link to '%s'", planning_link.c_str());
-    }
-
-    if (!sbpl_model->setPlanningLink(planning_link)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to set planning link to '%s'", planning_link.c_str());
-        return null_context;
-    }
-
-    bool res = true;
-    res &= sbpl_model->setPlanningScene(planning_scene);
-    res &= sbpl_model->setPlanningFrame(planning_scene->getPlanningFrame());
-    if (!res) {
-        ROS_WARN_NAMED(PP_LOGGER, "Failed to set SBPL Robot Model's planning scene or planning frame");
-        return null_context;
-    }
-
-    /////////////////////////////////////////////
-    // Initialize/Update SBPL Planning Context //
-    /////////////////////////////////////////////
-
-#if 0
-    logPlanningScene(*planning_scene);
-#endif
-
-    auto sbpl_context = mutable_me->getPlanningContextForPlanner(
-            sbpl_model, req.planner_id);
-
-    sbpl_context->setPlanningScene(planning_scene);
-    sbpl_context->setMotionPlanRequest(req);
-
-    return std::move(sbpl_context);
-}
-
-bool SBPLPlannerManager::canServiceRequest(
-    const planning_interface::MotionPlanRequest& req) const
-{
-    ROS_DEBUG_NAMED(PP_LOGGER, "SBPLPlannerManager::canServiceRequest()");
-
-    if (req.allowed_planning_time < 0.0) {
-        ROS_WARN_NAMED(PP_LOGGER, "allowed_planning_time must be non-negative");
-        return false;
-    }
-
-    // check for a configuration for the requested group
-    auto pcit = getPlannerConfigurations().find(req.group_name);
-    if (pcit == getPlannerConfigurations().end()) {
-        ROS_WARN_NAMED(PP_LOGGER, "No planner configuration found for group '%s'", req.group_name.c_str());
-        return false;
-    }
-
-    std::vector<std::string> available_algs;
-    getPlanningAlgorithms(available_algs);
-    if (std::find(
-            available_algs.begin(), available_algs.end(), req.planner_id) ==
-                    available_algs.end())
-    {
-        ROS_WARN_NAMED(PP_LOGGER, "No configuration found for the '%s' algorithm", req.planner_id.c_str());
-    }
-
-    // guard against unsupported constraints in the underlying interface
-    std::string why;
-    if (!smpl::PlannerInterface::SupportsGoalConstraints(
-            req.goal_constraints, why))
-    {
-        ROS_ERROR_NAMED(PP_LOGGER, "goal constraints not supported (%s)", why.c_str());
-        return false;
-    }
-
-    // TODO: ...an unfortunate moveit plugin truth
-    if (!req.path_constraints.position_constraints.empty() ||
-        !req.path_constraints.orientation_constraints.empty() ||
-        !req.path_constraints.joint_constraints.empty() ||
-        !req.path_constraints.visibility_constraints.empty())
-    {
-        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner does not support path constraints");
-        return false;
-    }
-
-    if (!req.trajectory_constraints.constraints.empty()) {
-        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner does not support trajectory constraints");
-        return false;
-    }
-
-    // TODO: check start state for existence of state for our robot model
-
-    // TODO: check for existence of workspace parameters frame? Would this make
-    // this call tied to an explicit planning scene?
-    if (req.workspace_parameters.header.frame_id.empty()) {
-        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner requires workspace parameters to have a valid frame");
-        return false;
-    }
-
-    // check for positive workspace volume
-    const auto& min_corner = req.workspace_parameters.min_corner;
-    const auto& max_corner = req.workspace_parameters.max_corner;
-    if (min_corner.x > max_corner.x ||
-        min_corner.y > max_corner.y ||
-        min_corner.z > max_corner.z)
-    {
-        std::stringstream reasons;
-        if (min_corner.x > max_corner.x) {
-            reasons << "negative length";
-        }
-        if (min_corner.y > max_corner.y) {
-            reasons << (reasons.str().empty() ? "" : " ") << "negative width";
-        }
-        if (min_corner.z > max_corner.z) {
-            reasons << (reasons.str().empty() ? "" : " ") << "negative height";
-        }
-        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner requires valid workspace (%s)", reasons.str().c_str());
-        return false;
-    }
-
-    return true;
-}
-
-void SBPLPlannerManager::setPlannerConfigurations(
-    const planning_interface::PlannerConfigurationMap& pcs)
-{
-    Base::setPlannerConfigurations(pcs);
-
-    ROS_DEBUG_NAMED(PP_LOGGER, "Planner Configurations");
-    for (const auto& entry : pcs) {
-        ROS_DEBUG_NAMED(PP_LOGGER, "  %s: { name: %s, group: %s }", entry.first.c_str(), entry.second.name.c_str(), entry.second.group.c_str());
-        for (const auto& e : entry.second.config) {
-            ROS_DEBUG_NAMED(PP_LOGGER, "    %s: %s", e.first.c_str(), e.second.c_str());
-        }
-    }
-}
-
-void SBPLPlannerManager::logPlanningScene(
-    const planning_scene::PlanningScene& scene) const
+static
+void LogPlanningScene(const planning_scene::PlanningScene& scene)
 {
     ROS_INFO_NAMED(PP_LOGGER, "Planning Scene");
     ROS_INFO_NAMED(PP_LOGGER, "  Ptr: %p", &scene);
@@ -411,362 +192,14 @@ void SBPLPlannerManager::logPlanningScene(
 //    scene.getAllowedCollisionMatrix().print(std::cout);
 }
 
-/// Load the mapping from planner configuration name to planner configuration
-/// settings.
-bool SBPLPlannerManager::loadPlannerConfigurationMapping(
-    const ros::NodeHandle& nh,
-    const moveit::core::RobotModel& model)
-{
-    // New Behavior! Instead of requiring sane config, we'll instead warn on
-    // all errors and parse as many existing configurations as possible. This
-    // can be useful for debugging. It also allows restarting move_group using
-    // a different planner plugin without clearing parameters, which causes
-    // configurations from other planner plugins to persist on the param server
-    // if they do not exist for this plugin.
-    auto ignore_errors = true;
+// key/value pairs for parameters to pass down to planner
+using PlannerSettings = std::map<std::string, std::string>;
 
-    PlannerSettingsMap search_settings;
-    if (!loadSettingsMap(nh, "search_configs", search_settings)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load search settings");
-        return false;
-    }
-    PlannerSettingsMap heuristic_settings;
-    if (!loadSettingsMap(nh, "heuristic_configs", heuristic_settings)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load heuristic settings");
-        return false;
-    }
-    PlannerSettingsMap graph_settings;
-    if (!loadSettingsMap(nh, "graph_configs", graph_settings)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load graph settings");
-        return false;
-    }
-    PlannerSettingsMap shortcut_settings;
-    if (!loadSettingsMap(nh, "shortcut_configs", shortcut_settings)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load shortcut settings");
-        return false;
-    }
+// config name -> (string -> string)
+using PlannerSettingsMap = std::map<std::string, PlannerSettings>;
 
-    ROS_DEBUG_NAMED(PP_LOGGER, "Successfully loaded planner settings");
-
-    planning_interface::PlannerConfigurationMap pcm;
-
-    const char* req_group_params[] = { };
-
-    for (auto& group_name : model.getJointModelGroupNames()) {
-        if (!nh.hasParam(group_name)) {
-            ROS_WARN_NAMED(PP_LOGGER, "No planning configuration for joint group '%s'", group_name.c_str());
-            continue;
-        }
-
-        ROS_DEBUG_NAMED(PP_LOGGER, "Read configuration for joint group '%s'", group_name.c_str());
-
-        // read group_name -> group config
-        XmlRpc::XmlRpcValue joint_group_cfg;
-        if (!nh.getParam(group_name, joint_group_cfg)) {
-            ROS_ERROR_NAMED(PP_LOGGER, "Failed to retrieve '%s'", group_name.c_str());
-            return false;
-        }
-
-        if (joint_group_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-            ROS_WARN_NAMED(PP_LOGGER, "'%s' should be a map of group names to group settings", group_name.c_str());
-            if (ignore_errors) continue; // next planning group
-            return false;
-        }
-
-        ROS_DEBUG_NAMED(PP_LOGGER, "Create (group, planner) configurations");
-
-        // read array of planner configurations
-        if (!joint_group_cfg.hasMember("planner_configs")) {
-            ROS_WARN("No planner configurations specified for group '%s'", group_name.c_str());
-            continue;
-        }
-
-        auto& planner_configs_cfg = joint_group_cfg["planner_configs"];
-        if (planner_configs_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-            ROS_WARN_NAMED(PP_LOGGER, "'planner_configs' element of '%s' should be a map of names to planner configurations (actual: %s)", group_name.c_str(), xmlTypeToString(planner_configs_cfg.getType()));
-            if (ignore_errors) continue; // next planning group
-            return false;
-        }
-
-        for (auto pcit = planner_configs_cfg.begin(); pcit != planner_configs_cfg.end(); ++pcit) {
-            auto& pc_name = pcit->first;
-            auto& planner_config = pcit->second;
-            if (planner_config.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-                ROS_WARN_NAMED(PP_LOGGER, "planner config should be a map from configuration name to configuration");
-                if (ignore_errors) continue; // next configuration
-                return false;
-            }
-
-            const char *required_keys[] =
-            {
-                "search_config",
-                "heuristic_config",
-                "graph_config",
-                "shortcut_config"
-            };
-
-            if (std::any_of(
-                    required_keys,
-                    required_keys + sizeof(required_keys) / sizeof(const char*),
-                    [&](const char *key)
-                    {
-                        return !planner_config.hasMember(key);
-                    }))
-            {
-                ROS_WARN_NAMED(PP_LOGGER, "planner config lacks required keys");
-                for (int i = 0; i < sizeof(required_keys) / sizeof(const char*); ++i) {
-                    const char* key = required_keys[i];
-                    ROS_WARN_NAMED(PP_LOGGER, "Has '%s': %s", key, planner_config.hasMember(key) ? "true" : "false");
-                }
-                if (ignore_errors) continue; // next configuration
-                return false;
-            }
-
-            planning_interface::PlannerConfigurationSettings pcs;
-            pcs.name = group_name + "[" + pc_name + "]";
-            pcs.group = group_name;
-
-            for (auto mit = planner_config.begin(); mit != planner_config.end(); ++mit) {
-                if (mit->second.getType() != XmlRpc::XmlRpcValue::TypeString) {
-                    ROS_WARN_NAMED(PP_LOGGER, "planner configuration value is not a string");
-                    continue;
-                }
-                const std::string &cfgkey(mit->first);
-                const std::string &cfgval(mit->second);
-                // squash search, heuristic, graph, and shortcut configurations
-                // into combined config
-                if (cfgkey == "graph_config") {
-                    auto it = graph_settings.find(cfgval);
-                    if (it == graph_settings.end()) {
-                        ROS_WARN_NAMED(PP_LOGGER, "No graph settings exist for configuration '%s'", cfgval.c_str());
-                        continue;
-                    }
-                    pcs.config.insert(it->second.begin(), it->second.end());
-                } else if (cfgkey == "heuristic_config") {
-                    auto it = heuristic_settings.find(cfgval);
-                    if (it == heuristic_settings.end()) {
-                        ROS_WARN_NAMED(PP_LOGGER, "No heuristic settings exist for configuration '%s'", cfgval.c_str());
-                        continue;
-                    }
-                    pcs.config.insert(it->second.begin(), it->second.end());
-                } else if (cfgkey == "search_config") {
-                    auto it = search_settings.find(cfgval);
-                    if (it == search_settings.end()) {
-                        ROS_WARN_NAMED(PP_LOGGER, "No search settings exist for configuration '%s'", cfgval.c_str());
-                        continue;
-                    }
-                    pcs.config.insert(it->second.begin(), it->second.end());
-                } else if (cfgkey == "shortcut_config") {
-                    auto it = shortcut_settings.find(cfgval);
-                    if (it == shortcut_settings.end()) {
-                        ROS_WARN_NAMED(PP_LOGGER, "No shortcut settings exist for configuration '%s'", cfgval.c_str());
-                        continue;
-                    }
-                    pcs.config.insert(it->second.begin(), it->second.end());
-                } else {
-                    // anything else goes straight into the configuration map
-                    pcs.config.insert({ cfgkey, cfgval });
-                }
-            }
-
-            pcm[pcs.name] = pcs;
-        }
-
-        ROS_DEBUG_NAMED(PP_LOGGER, "Create group configuration");
-
-        // Gather required parameters for the group, regardless of planner configuration
-        PlannerSettings req_settings;
-        if (std::all_of(
-                req_group_params,
-                req_group_params + sizeof(req_group_params) / sizeof(const char*),
-                [&](const char* param_name)
-                {
-                    if (!joint_group_cfg.hasMember(param_name)) {
-                        ROS_WARN_NAMED(PP_LOGGER, "Group '%s' lacks parameter '%s'", group_name.c_str(), param_name);
-                        return false;
-                    }
-
-                    ROS_DEBUG_NAMED(PP_LOGGER, "Convert parameter '%s' to string representation", param_name);
-                    XmlRpc::XmlRpcValue& param = joint_group_cfg[param_name];
-                    if (!xmlToString(param, req_settings[param_name])) {
-                        ROS_ERROR_NAMED(PP_LOGGER, "Unsupported parameter type");
-                        return false;
-                    }
-
-                    ROS_DEBUG_NAMED(PP_LOGGER, "Converted parameter to '%s'", req_settings[param_name].c_str());
-                    return true;
-                }))
-        {
-            planning_interface::PlannerConfigurationSettings pcs;
-            pcs.name = group_name;
-            pcs.group = group_name;
-            pcs.config = req_settings;
-            pcm[pcs.name] = pcs;
-        }
-    }
-
-    setPlannerConfigurations(pcm);
-    return true;
-}
-
-bool SBPLPlannerManager::loadSettingsMap(
-    const ros::NodeHandle& nh,
-    const std::string& param_name,
-    PlannerSettingsMap& settings)
-{
-    if (!nh.hasParam(param_name)) {
-        return true;
-    }
-
-    PlannerSettingsMap planner_configs;
-
-    XmlRpc::XmlRpcValue search_configs_cfg;
-    if (!nh.getParam(param_name, search_configs_cfg)) {
-        ROS_ERROR_NAMED(PP_LOGGER, "Failed to retrieve '%s'", param_name.c_str());
-        return false;
-    }
-
-    // planner_configs should be a mapping of planner configuration names to
-    // another struct which is a mapping of parameter names (strings) to
-    // parameter values (type known per-parameter)
-    if (search_configs_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-        ROS_ERROR_NAMED(PP_LOGGER, "'planner_configs' section should be a map of planner configuration names to planner configurations (found type '%s')", xmlTypeToString(search_configs_cfg.getType()));
-        return false;
-    }
-
-    for (auto it = search_configs_cfg.begin();
-        it != search_configs_cfg.end();
-        ++it)
-    {
-        const std::string& planner_config_name = it->first;
-        XmlRpc::XmlRpcValue& planner_settings_cfg = it->second;
-
-        ROS_DEBUG_NAMED(PP_LOGGER, "Read configuration for '%s'", planner_config_name.c_str());
-
-        if (planner_settings_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
-            ROS_ERROR_NAMED(PP_LOGGER, "Planner configuration should be a map of parameter names to values");
-            return false;
-        }
-
-        PlannerSettings planner_settings;
-        for (auto iit = planner_settings_cfg.begin();
-            iit != planner_settings_cfg.end();
-            ++iit)
-        {
-            const std::string& planner_setting_name = iit->first;
-            XmlRpc::XmlRpcValue& planner_setting = iit->second;
-            ROS_DEBUG_NAMED(PP_LOGGER, "Read value for parameter '%s'", planner_setting_name.c_str());
-            if (!xmlToString(planner_setting, planner_settings[planner_setting_name])) {
-                ROS_ERROR_NAMED(PP_LOGGER, "Unsupported parameter type");
-            }
-            // planner settings filled if no error above
-        }
-
-        planner_configs[planner_config_name] = planner_settings;
-    }
-
-    settings = std::move(planner_configs);
-    return true;
-}
-
-auto SBPLPlannerManager::getModelForGroup(const std::string& group_name)
-    -> MoveItRobotModel*
-{
-    auto it = m_sbpl_models.find(group_name);
-    if (it == end(m_sbpl_models)) {
-        auto model = smpl::make_unique<MoveItRobotModel>();
-        if (!model->init(m_robot_model, group_name)) {
-            ROS_WARN_NAMED(PP_LOGGER, "Failed to initialize SBPL Robot Model");
-            return NULL;
-        }
-
-        ROS_INFO_NAMED(PP_LOGGER, "Created SBPL Robot Model for group '%s'", group_name.c_str());
-        auto ent = m_sbpl_models.insert(std::make_pair(group_name, std::move(model)));
-        return ent.first->second.get();
-    } else {
-        ROS_DEBUG_NAMED(PP_LOGGER, "Use existing SBPL Robot Model for group '%s'", group_name.c_str());
-        return it->second.get();
-    }
-}
-
-auto SBPLPlannerManager::getPlanningContextForPlanner(
-    MoveItRobotModel* model,
-    const std::string& planner_id)
-    -> SBPLPlanningContextPtr
-{
-    SBPLPlanningContextPtr null_context;
-    auto it = m_contexts.find(planner_id);
-    if (it == end(m_contexts)) {
-        auto context = SBPLPlanningContextPtr(new SBPLPlanningContext(
-                model, "sbpl_planning_context", model->planningGroupName()));
-
-        // find a configuration for this group + planner_id
-        auto& configs = this->getPlannerConfigurations();
-
-        // merge parameters from global group parameters and parameters for the
-        // selected planning configuration
-        std::map<std::string, std::string> all_params;
-        for (auto it = begin(configs); it != end(configs); ++it) {
-            auto& name = it->first;
-            auto& settings = it->second;
-            auto& group_name = model->planningGroupName();
-            if (name == group_name) {
-                all_params.insert(begin(settings.config), end(settings.config));
-            } else if (name == planner_id) {
-                all_params.insert(begin(settings.config), end(settings.config));
-            }
-        }
-
-        if (!context->init(all_params)) {
-            ROS_ERROR_NAMED(PP_LOGGER, "Failed to initialize SBPL Planning Context");
-            return null_context;
-        }
-
-        m_contexts.insert(std::make_pair(planner_id, context));
-        return context;
-    } else {
-        return it->second;
-    }
-}
-
-auto SBPLPlannerManager::selectPlanningLink(
-    const planning_interface::MotionPlanRequest& req) const
-    -> std::string
-{
-    if (req.goal_constraints.empty()) {
-        return std::string(); // doesn't matter, we'll bail out soon
-    }
-
-    auto& goal_constraint = req.goal_constraints.front();
-    // should've received one pose constraint for a single link, o/w
-    // canServiceRequest would have complained
-    if (!goal_constraint.position_constraints.empty()) {
-        auto& position_constraint = goal_constraint.position_constraints.front();
-        return position_constraint.link_name;
-    }
-
-    // it's still useful to have a planning link for obstacle-based
-    // heuristic information...inspect the joint model group
-
-    auto* jmg = m_robot_model->getJointModelGroup(req.group_name);
-
-    std::vector<std::string> ee_tips;
-    if (jmg->getEndEffectorTips(ee_tips) && !ee_tips.empty()) {
-        return ee_tips.front();
-    }
-
-    // TODO: can still pick a useful planning as the most descendant
-    // link in the joint group...possibly prefer links for which an ik solver
-    // is available
-
-    if (!jmg->getLinkModelNames().empty()) {
-        return jmg->getLinkModelNames().back();
-    }
-
-    return std::string(); // well...nothing we can do about this
-}
-bool SBPLPlannerManager::xmlToString(
-    XmlRpc::XmlRpcValue& value, std::string& out) const
+static
+bool XMLToString(XmlRpc::XmlRpcValue& value, std::string& out)
 {
     switch (value.getType()) {
     case XmlRpc::XmlRpcValue::TypeString: {
@@ -856,9 +289,582 @@ bool SBPLPlannerManager::xmlToString(
     return true;
 }
 
+static
+bool LoadSettingsMap(
+    const ros::NodeHandle& nh,
+    const std::string& param_name,
+    PlannerSettingsMap& settings)
+{
+    if (!nh.hasParam(param_name)) {
+        return true;
+    }
+
+    PlannerSettingsMap planner_configs;
+
+    XmlRpc::XmlRpcValue search_configs_cfg;
+    if (!nh.getParam(param_name, search_configs_cfg)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to retrieve '%s'", param_name.c_str());
+        return false;
+    }
+
+    // planner_configs should be a mapping of planner configuration names to
+    // another struct which is a mapping of parameter names (strings) to
+    // parameter values (type known per-parameter)
+    if (search_configs_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+        ROS_ERROR_NAMED(PP_LOGGER, "'planner_configs' section should be a map of planner configuration names to planner configurations (found type '%s')", xmlTypeToString(search_configs_cfg.getType()));
+        return false;
+    }
+
+    for (auto it = search_configs_cfg.begin();
+        it != search_configs_cfg.end();
+        ++it)
+    {
+        const std::string& planner_config_name = it->first;
+        XmlRpc::XmlRpcValue& planner_settings_cfg = it->second;
+
+        ROS_DEBUG_NAMED(PP_LOGGER, "Read configuration for '%s'", planner_config_name.c_str());
+
+        if (planner_settings_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+            ROS_ERROR_NAMED(PP_LOGGER, "Planner configuration should be a map of parameter names to values");
+            return false;
+        }
+
+        PlannerSettings planner_settings;
+        for (auto iit = planner_settings_cfg.begin();
+            iit != planner_settings_cfg.end();
+            ++iit)
+        {
+            const std::string& planner_setting_name = iit->first;
+            XmlRpc::XmlRpcValue& planner_setting = iit->second;
+            ROS_DEBUG_NAMED(PP_LOGGER, "Read value for parameter '%s'", planner_setting_name.c_str());
+            if (!XMLToString(planner_setting, planner_settings[planner_setting_name])) {
+                ROS_ERROR_NAMED(PP_LOGGER, "Unsupported parameter type");
+            }
+            // planner settings filled if no error above
+        }
+
+        planner_configs[planner_config_name] = planner_settings;
+    }
+
+    settings = std::move(planner_configs);
+    return true;
+}
+
+/// Load the mapping from planner configuration name to planner configuration
+/// settings.
+static
+bool LoadPlannerConfigurationMapping(
+    const ros::NodeHandle& nh,
+    const moveit::core::RobotModel& model,
+    PlannerConfigurationMap* pcm_out)
+{
+    // New Behavior! Instead of requiring sane config, we'll instead warn on
+    // all errors and parse as many existing configurations as possible. This
+    // can be useful for debugging. It also allows restarting move_group using
+    // a different planner plugin without clearing parameters, which causes
+    // configurations from other planner plugins to persist on the param server
+    // if they do not exist for this plugin.
+    auto ignore_errors = true;
+
+    PlannerSettingsMap search_settings;
+    if (!LoadSettingsMap(nh, "search_configs", search_settings)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load search settings");
+        return false;
+    }
+    PlannerSettingsMap heuristic_settings;
+    if (!LoadSettingsMap(nh, "heuristic_configs", heuristic_settings)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load heuristic settings");
+        return false;
+    }
+    PlannerSettingsMap graph_settings;
+    if (!LoadSettingsMap(nh, "graph_configs", graph_settings)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load graph settings");
+        return false;
+    }
+    PlannerSettingsMap shortcut_settings;
+    if (!LoadSettingsMap(nh, "shortcut_configs", shortcut_settings)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load shortcut settings");
+        return false;
+    }
+
+    ROS_DEBUG_NAMED(PP_LOGGER, "Successfully loaded planner settings");
+
+    PlannerConfigurationMap pcm;
+
+    const char* req_group_params[] = { };
+
+    for (auto& group_name : model.getJointModelGroupNames()) {
+        if (!nh.hasParam(group_name)) {
+            ROS_WARN_NAMED(PP_LOGGER, "No planning configuration for joint group '%s'", group_name.c_str());
+            continue;
+        }
+
+        ROS_DEBUG_NAMED(PP_LOGGER, "Read configuration for joint group '%s'", group_name.c_str());
+
+        // read group_name -> group config
+        XmlRpc::XmlRpcValue joint_group_cfg;
+        if (!nh.getParam(group_name, joint_group_cfg)) {
+            ROS_ERROR_NAMED(PP_LOGGER, "Failed to retrieve '%s'", group_name.c_str());
+            return false;
+        }
+
+        if (joint_group_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+            ROS_WARN_NAMED(PP_LOGGER, "'%s' should be a map of group names to group settings", group_name.c_str());
+            if (ignore_errors) continue; // next planning group
+            return false;
+        }
+
+        ROS_DEBUG_NAMED(PP_LOGGER, "Create (group, planner) configurations");
+
+        // read array of planner configurations
+        if (!joint_group_cfg.hasMember("planner_configs")) {
+            ROS_WARN("No planner configurations specified for group '%s'", group_name.c_str());
+            continue;
+        }
+
+        auto& planner_configs_cfg = joint_group_cfg["planner_configs"];
+        if (planner_configs_cfg.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+            ROS_WARN_NAMED(PP_LOGGER, "'planner_configs' element of '%s' should be a map of names to planner configurations (actual: %s)", group_name.c_str(), xmlTypeToString(planner_configs_cfg.getType()));
+            if (ignore_errors) continue; // next planning group
+            return false;
+        }
+
+        for (auto pcit = planner_configs_cfg.begin(); pcit != planner_configs_cfg.end(); ++pcit) {
+            auto& pc_name = pcit->first;
+            auto& planner_config = pcit->second;
+            if (planner_config.getType() != XmlRpc::XmlRpcValue::TypeStruct) {
+                ROS_WARN_NAMED(PP_LOGGER, "planner config should be a map from configuration name to configuration");
+                if (ignore_errors) continue; // next configuration
+                return false;
+            }
+
+            const char *required_keys[] =
+            {
+                "search_config",
+                "heuristic_config",
+                "graph_config",
+                "shortcut_config"
+            };
+
+            if (std::any_of(
+                    required_keys,
+                    required_keys + sizeof(required_keys) / sizeof(const char*),
+                    [&](const char *key)
+                    {
+                        return !planner_config.hasMember(key);
+                    }))
+            {
+                ROS_WARN_NAMED(PP_LOGGER, "planner config lacks required keys");
+                for (int i = 0; i < sizeof(required_keys) / sizeof(const char*); ++i) {
+                    const char* key = required_keys[i];
+                    ROS_WARN_NAMED(PP_LOGGER, "Has '%s': %s", key, planner_config.hasMember(key) ? "true" : "false");
+                }
+                if (ignore_errors) continue; // next configuration
+                return false;
+            }
+
+            PlannerConfigurationSettings pcs;
+            pcs.name = group_name + "[" + pc_name + "]";
+            pcs.group = group_name;
+
+            for (auto mit = planner_config.begin(); mit != planner_config.end(); ++mit) {
+                if (mit->second.getType() != XmlRpc::XmlRpcValue::TypeString) {
+                    ROS_WARN_NAMED(PP_LOGGER, "planner configuration value is not a string");
+                    continue;
+                }
+                const std::string &cfgkey(mit->first);
+                const std::string &cfgval(mit->second);
+                // squash search, heuristic, graph, and shortcut configurations
+                // into combined config
+                if (cfgkey == "graph_config") {
+                    auto it = graph_settings.find(cfgval);
+                    if (it == graph_settings.end()) {
+                        ROS_WARN_NAMED(PP_LOGGER, "No graph settings exist for configuration '%s'", cfgval.c_str());
+                        continue;
+                    }
+                    pcs.config.insert(it->second.begin(), it->second.end());
+                } else if (cfgkey == "heuristic_config") {
+                    auto it = heuristic_settings.find(cfgval);
+                    if (it == heuristic_settings.end()) {
+                        ROS_WARN_NAMED(PP_LOGGER, "No heuristic settings exist for configuration '%s'", cfgval.c_str());
+                        continue;
+                    }
+                    pcs.config.insert(it->second.begin(), it->second.end());
+                } else if (cfgkey == "search_config") {
+                    auto it = search_settings.find(cfgval);
+                    if (it == search_settings.end()) {
+                        ROS_WARN_NAMED(PP_LOGGER, "No search settings exist for configuration '%s'", cfgval.c_str());
+                        continue;
+                    }
+                    pcs.config.insert(it->second.begin(), it->second.end());
+                } else if (cfgkey == "shortcut_config") {
+                    auto it = shortcut_settings.find(cfgval);
+                    if (it == shortcut_settings.end()) {
+                        ROS_WARN_NAMED(PP_LOGGER, "No shortcut settings exist for configuration '%s'", cfgval.c_str());
+                        continue;
+                    }
+                    pcs.config.insert(it->second.begin(), it->second.end());
+                } else {
+                    // anything else goes straight into the configuration map
+                    pcs.config.insert({ cfgkey, cfgval });
+                }
+            }
+
+            pcm[pcs.name] = pcs;
+        }
+
+        ROS_DEBUG_NAMED(PP_LOGGER, "Create group configuration");
+
+        // Gather required parameters for the group, regardless of planner configuration
+        PlannerSettings req_settings;
+        if (std::all_of(
+                req_group_params,
+                req_group_params + sizeof(req_group_params) / sizeof(const char*),
+                [&](const char* param_name)
+                {
+                    if (!joint_group_cfg.hasMember(param_name)) {
+                        ROS_WARN_NAMED(PP_LOGGER, "Group '%s' lacks parameter '%s'", group_name.c_str(), param_name);
+                        return false;
+                    }
+
+                    ROS_DEBUG_NAMED(PP_LOGGER, "Convert parameter '%s' to string representation", param_name);
+                    XmlRpc::XmlRpcValue& param = joint_group_cfg[param_name];
+                    if (!XMLToString(param, req_settings[param_name])) {
+                        ROS_ERROR_NAMED(PP_LOGGER, "Unsupported parameter type");
+                        return false;
+                    }
+
+                    ROS_DEBUG_NAMED(PP_LOGGER, "Converted parameter to '%s'", req_settings[param_name].c_str());
+                    return true;
+                }))
+        {
+            PlannerConfigurationSettings pcs;
+            pcs.name = group_name;
+            pcs.group = group_name;
+            pcs.config = req_settings;
+            pcm[pcs.name] = pcs;
+        }
+    }
+
+    *pcm_out = std::move(pcm);
+    return true;
+}
+
+// retrive an already-initialized model for a given group
+auto GetModelForGroup(
+    SBPLPlannerManager* manager,
+    const std::string& group_name)
+    -> MoveItRobotModel*
+{
+    auto it = manager->m_sbpl_models.find(group_name);
+    if (it != end(manager->m_sbpl_models)) {
+        ROS_DEBUG_NAMED(PP_LOGGER, "Use existing SBPL Robot Model for group '%s'", group_name.c_str());
+        return it->second.get();
+    }
+
+    auto model = smpl::make_unique<MoveItRobotModel>();
+    if (!model->init(manager->m_robot_model, group_name)) {
+        ROS_WARN_NAMED(PP_LOGGER, "Failed to initialize SBPL Robot Model");
+        return NULL;
+    }
+
+    ROS_INFO_NAMED(PP_LOGGER, "Created SBPL Robot Model for group '%s'", group_name.c_str());
+    auto ent = manager->m_sbpl_models.insert(std::make_pair(group_name, std::move(model)));
+    return ent.first->second.get();
+}
+
+auto GetPlanningContextForPlanner(
+    SBPLPlannerManager* manager,
+    MoveItRobotModel* model,
+    const std::string& planner_id)
+    -> SBPLPlanningContextPtr
+{
+    SBPLPlanningContextPtr null_context;
+    auto it = manager->m_contexts.find(planner_id);
+    if (it != end(manager->m_contexts)) {
+        return it->second;
+    }
+
+    auto context = SBPLPlanningContextPtr(new SBPLPlanningContext(
+            model, "sbpl_planning_context", model->planningGroupName()));
+
+    // find a configuration for this group + planner_id
+    auto& configs = manager->getPlannerConfigurations();
+
+    // merge parameters from global group parameters and parameters for the
+    // selected planning configuration
+    auto all_params = std::map<std::string, std::string>();
+    for (auto& config : configs) {
+        auto& name = config.first;
+        auto& settings = config.second;
+        auto& group_name = model->planningGroupName();
+        if (name == group_name) {
+            all_params.insert(begin(settings.config), end(settings.config));
+        } else if (name == planner_id) {
+            all_params.insert(begin(settings.config), end(settings.config));
+        }
+    }
+
+    if (!context->init(all_params)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to initialize SBPL Planning Context");
+        return null_context;
+    }
+
+    manager->m_contexts.insert(std::make_pair(planner_id, context));
+    return context;
+}
+
+auto SelectPlanningLink(
+    const SBPLPlannerManager* manager,
+    const MotionPlanRequest& req)
+    -> std::string
+{
+    if (req.goal_constraints.empty()) {
+        return std::string(); // doesn't matter, we'll bail out soon
+    }
+
+    auto& goal_constraint = req.goal_constraints.front();
+    // should've received one pose constraint for a single link, o/w
+    // canServiceRequest would have complained
+    if (!goal_constraint.position_constraints.empty()) {
+        auto& position_constraint = goal_constraint.position_constraints.front();
+        return position_constraint.link_name;
+    }
+
+    // it's still useful to have a planning link for obstacle-based
+    // heuristic information...inspect the joint model group
+
+    auto* jmg = manager->m_robot_model->getJointModelGroup(req.group_name);
+
+    std::vector<std::string> ee_tips;
+    if (jmg->getEndEffectorTips(ee_tips) && !ee_tips.empty()) {
+        return ee_tips.front();
+    }
+
+    // TODO: can still pick a useful planning as the most descendant
+    // link in the joint group...possibly prefer links for which an ik solver
+    // is available
+
+    if (!jmg->getLinkModelNames().empty()) {
+        return jmg->getLinkModelNames().back();
+    }
+
+    return std::string(); // well...nothing we can do about this
+}
+
+SBPLPlannerManager::SBPLPlannerManager() :
+    Base(),
+    m_robot_model(),
+    m_viz()
+{
+    ROS_DEBUG_NAMED(PP_LOGGER, "Constructed SBPL Planner Manager");
+    smpl::viz::set_visualizer(&m_viz);
+}
+
+SBPLPlannerManager::~SBPLPlannerManager()
+{
+    ROS_DEBUG_NAMED(PP_LOGGER, "Destructed SBPL Planner Manager");
+    if (smpl::viz::visualizer() == &m_viz) {
+        smpl::viz::unset_visualizer();
+    }
+}
+
+bool SBPLPlannerManager::initialize(
+    const robot_model::RobotModelConstPtr& model,
+    const std::string& ns)
+{
+    ROS_INFO_NAMED(PP_LOGGER, "Initialize SBPL Planner Manager");
+    ROS_INFO_NAMED(PP_LOGGER, "  Robot Model: %s", model->getName().c_str());
+    ROS_INFO_NAMED(PP_LOGGER, "  Namespace: %s", ns.c_str());
+
+    m_robot_model = model;
+
+    ros::NodeHandle nh(ns);
+    PlannerConfigurationMap pcm;
+    if (!LoadPlannerConfigurationMapping(nh, *model, &pcm)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to load planner configurations");
+        return false;
+    }
+
+    setPlannerConfigurations(pcm);
+
+    ROS_INFO_NAMED(PP_LOGGER, "Initialized SBPL Planner Manager");
+    return true;
+}
+
+auto SBPLPlannerManager::getDescription() const -> std::string
+{
+    return "Search-Based Planning Algorithms";
+}
+
+void SBPLPlannerManager::getPlanningAlgorithms(
+    std::vector<std::string>& algs) const
+{
+    auto& configs = getPlannerConfigurations();
+    for (auto& entry : configs) {
+        if (entry.first.find('[') != std::string::npos) {
+            algs.push_back(entry.first);
+        }
+    }
+}
+
+auto SBPLPlannerManager::getPlanningContext(
+    const planning_scene::PlanningSceneConstPtr& planning_scene,
+    const MotionPlanRequest& req,
+    moveit_msgs::MoveItErrorCodes& error_code) const
+    -> PlanningContextPtr
+{
+    ROS_DEBUG_NAMED(PP_LOGGER, "Get SBPL Planning Context");
+
+    LogMotionPlanRequest(req);
+
+    PlanningContextPtr null_context;
+
+    if (!canServiceRequest(req)) {
+        ROS_WARN_NAMED(PP_LOGGER, "Unable to service request");
+        return null_context;
+    }
+
+    if (!planning_scene) {
+        ROS_WARN_NAMED(PP_LOGGER, "Planning Scene is null");
+        return null_context;
+    }
+
+    ////////////////////////////////////////
+    // Initialize/Update SBPL Robot Model //
+    ////////////////////////////////////////
+
+    auto* mutable_me = const_cast<SBPLPlannerManager*>(this);
+    auto* sbpl_model = GetModelForGroup(mutable_me, req.group_name);
+    if (!sbpl_model) {
+        ROS_WARN_NAMED(PP_LOGGER, "No SBPL Robot Model available for group '%s'", req.group_name.c_str());
+        return null_context;
+    }
+
+    auto planning_link = SelectPlanningLink(this, req);
+    if (planning_link.empty()) {
+        ROS_INFO_NAMED(PP_LOGGER, "Clear the planning link");
+    } else {
+        ROS_INFO_NAMED(PP_LOGGER, "Set planning link to '%s'", planning_link.c_str());
+    }
+
+    if (!sbpl_model->setPlanningLink(planning_link)) {
+        ROS_ERROR_NAMED(PP_LOGGER, "Failed to set planning link to '%s'", planning_link.c_str());
+        return null_context;
+    }
+
+    bool res = true;
+    res &= sbpl_model->setPlanningScene(planning_scene);
+    res &= sbpl_model->setPlanningFrame(planning_scene->getPlanningFrame());
+    if (!res) {
+        ROS_WARN_NAMED(PP_LOGGER, "Failed to set SBPL Robot Model's planning scene or planning frame");
+        return null_context;
+    }
+
+    /////////////////////////////////////////////
+    // Initialize/Update SBPL Planning Context //
+    /////////////////////////////////////////////
+
+#if 0
+    LogPlanningScene(*planning_scene);
+#endif
+
+    auto sbpl_context = GetPlanningContextForPlanner(
+            mutable_me, sbpl_model, req.planner_id);
+
+    sbpl_context->setPlanningScene(planning_scene);
+    sbpl_context->setMotionPlanRequest(req);
+
+    return std::move(sbpl_context);
+}
+
+bool SBPLPlannerManager::canServiceRequest(const MotionPlanRequest& req) const
+{
+    ROS_DEBUG_NAMED(PP_LOGGER, "SBPLPlannerManager::canServiceRequest()");
+
+    if (req.allowed_planning_time < 0.0) {
+        ROS_WARN_NAMED(PP_LOGGER, "allowed_planning_time must be non-negative");
+        return false;
+    }
+
+    // check for a configuration for the requested group
+    auto pcit = getPlannerConfigurations().find(req.group_name);
+    if (pcit == getPlannerConfigurations().end()) {
+        ROS_WARN_NAMED(PP_LOGGER, "No planner configuration found for group '%s'", req.group_name.c_str());
+        return false;
+    }
+
+    std::vector<std::string> available_algs;
+    getPlanningAlgorithms(available_algs);
+    if (std::find(
+            available_algs.begin(), available_algs.end(), req.planner_id) ==
+                    available_algs.end())
+    {
+        ROS_WARN_NAMED(PP_LOGGER, "No configuration found for the '%s' algorithm", req.planner_id.c_str());
+    }
+
+    // guard against unsupported constraints in the underlying interface
+    std::string why;
+    if (!smpl::PlannerInterface::SupportsGoalConstraints(
+            req.goal_constraints, why))
+    {
+        ROS_ERROR_NAMED(PP_LOGGER, "goal constraints not supported (%s)", why.c_str());
+        return false;
+    }
+
+    if (!req.trajectory_constraints.constraints.empty()) {
+        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner does not support trajectory constraints");
+        return false;
+    }
+
+    // TODO: check start state for existence of state for our robot model
+
+    // TODO: check for existence of workspace parameters frame? Would this make
+    // this call tied to an explicit planning scene?
+    if (req.workspace_parameters.header.frame_id.empty()) {
+        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner requires workspace parameters to have a valid frame");
+        return false;
+    }
+
+    // check for positive workspace volume
+    auto& min_corner = req.workspace_parameters.min_corner;
+    auto& max_corner = req.workspace_parameters.max_corner;
+    if (min_corner.x > max_corner.x ||
+        min_corner.y > max_corner.y ||
+        min_corner.z > max_corner.z)
+    {
+        std::stringstream reasons;
+        if (min_corner.x > max_corner.x) {
+            reasons << "negative length";
+        }
+        if (min_corner.y > max_corner.y) {
+            reasons << (reasons.str().empty() ? "" : " ") << "negative width";
+        }
+        if (min_corner.z > max_corner.z) {
+            reasons << (reasons.str().empty() ? "" : " ") << "negative height";
+        }
+        ROS_WARN_NAMED(PP_LOGGER, "SBPL planner requires valid workspace (%s)", reasons.str().c_str());
+        return false;
+    }
+
+    return true;
+}
+
+void SBPLPlannerManager::setPlannerConfigurations(
+    const PlannerConfigurationMap& pcs)
+{
+    Base::setPlannerConfigurations(pcs);
+
+    ROS_DEBUG_NAMED(PP_LOGGER, "Planner Configurations");
+    for (auto& entry : pcs) {
+        ROS_DEBUG_NAMED(PP_LOGGER, "  %s: { name: %s, group: %s }", entry.first.c_str(), entry.second.name.c_str(), entry.second.group.c_str());
+        for (auto& e : entry.second.config) {
+            ROS_DEBUG_NAMED(PP_LOGGER, "    %s: %s", e.first.c_str(), e.second.c_str());
+        }
+    }
+}
+
 } // namespace sbpl_interface
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(
-        sbpl_interface::SBPLPlannerManager,
-        planning_interface::PlannerManager);
+PLUGINLIB_EXPORT_CLASS(sbpl_interface::SBPLPlannerManager, planning_interface::PlannerManager);

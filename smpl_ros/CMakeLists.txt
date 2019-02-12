@@ -19,6 +19,7 @@ find_package(
     catkin
     REQUIRED
     COMPONENTS
+        eigen_conversions
         leatherman
         moveit_core
         moveit_msgs
