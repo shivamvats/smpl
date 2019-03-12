@@ -424,8 +424,6 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
         }
 
         double x, y, theta;
-        x = state[i][0];
-        y = state[i][1];
         theta = state[i][2];
         action[i][0] = sin(theta)*action[i][0] + state[0];
         action[i][1] = cos(theta)*action[i][1] + state[1];
