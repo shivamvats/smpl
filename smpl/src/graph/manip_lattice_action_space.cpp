@@ -35,6 +35,7 @@
 // standard includes
 #include <limits>
 #include <numeric>
+#include <cmath>
 
 // project includes
 #include <smpl/angles.h>
@@ -423,11 +424,11 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
             return false;
         }
 
-        double x, y, theta;
+        double theta;
         theta = state[i][2];
         action[i][0] = sin(theta)*action[i][0] + state[0];
         action[i][1] = cos(theta)*action[i][1] + state[1];
-        for (size_t j = 2 j < action[i].size(); ++j) {
+        for (size_t j = 2; j < action[i].size(); ++j) {
             action[i][j] = action[i][j] + state[j];
         }
     }
