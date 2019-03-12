@@ -423,7 +423,13 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
             return false;
         }
 
-        for (size_t j = 0; j < action[i].size(); ++j) {
+        double x, y, theta;
+        x = state[i][0];
+        y = state[i][1];
+        theta = state[i][2];
+        action[i][0] = sin(theta)*action[i][0] + state[0];
+        action[i][1] = cos(theta)*action[i][1] + state[1];
+        for (size_t j = 2 j < action[i].size(); ++j) {
             action[i][j] = action[i][j] + state[j];
         }
     }
