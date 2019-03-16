@@ -81,6 +81,11 @@ auto MakeEuclidDistHeuristic(
     const PlanningParams& params)
     -> std::unique_ptr<RobotHeuristic>;
 
+auto MakeEuclidDiffHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>;
+
 auto MakeJointDistHeuristic(
     RobotPlanningSpace* space,
     const PlanningParams& params)

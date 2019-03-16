@@ -261,6 +261,7 @@ PlannerInterface::PlannerInterface(
     };
 
     m_heuristic_factories["euclid"] = MakeEuclidDistHeuristic;
+    m_heuristic_factories["euclid_diff"] = MakeEuclidDiffHeuristic;
 
     m_heuristic_factories["joint_distance"] = MakeJointDistHeuristic;
 

@@ -14,6 +14,7 @@
 #include <smpl/heuristic/bfs_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/euclid_dist_heuristic.h>
+#include <smpl/heuristic/euclid_diffdrive_heuristic.h>
 #include <smpl/heuristic/generic_egraph_heuristic.h>
 #include <smpl/heuristic/joint_dist_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
@@ -529,6 +530,30 @@ auto MakeEuclidDistHeuristic(
     -> std::unique_ptr<RobotHeuristic>
 {
     auto h = make_unique<EuclidDistHeuristic>();
+
+    if (!h->init(space)) {
+        return nullptr;
+    }
+
+    double wx, wy, wz, wr;
+    params.param("x_coeff", wx, 1.0);
+    params.param("y_coeff", wy, 1.0);
+    params.param("z_coeff", wz, 1.0);
+    params.param("rot_coeff", wr, 1.0);
+
+    h->setWeightX(wx);
+    h->setWeightY(wy);
+    h->setWeightZ(wz);
+    h->setWeightRot(wr);
+    return std::move(h);
+};
+
+auto MakeEuclidDiffHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>
+{
+    auto h = make_unique<EuclidDiffHeuristic>();
 
     if (!h->init(space)) {
         return nullptr;

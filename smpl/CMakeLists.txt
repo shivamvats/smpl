@@ -152,6 +152,7 @@ set(SMPL_LIBRARY_SOURCES
     src/heuristic/egraph_bfs_heuristic.cpp
     src/heuristic/generic_egraph_heuristic.cpp
     src/heuristic/euclid_dist_heuristic.cpp
+    src/heuristic/euclid_diffdrive_heuristic.cpp
     src/heuristic/robot_heuristic.cpp
     src/heuristic/joint_dist_heuristic.cpp
     src/heuristic/multi_frame_bfs_heuristic.cpp

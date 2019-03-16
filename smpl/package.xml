@@ -13,6 +13,7 @@
     <depend>boost</depend>
     <depend>eigen</depend>
     <depend>roscpp</depend>
+    <depend> sbpl </depend>
     <depend>visualization_msgs</depend>
 
     <export>
