@@ -427,15 +427,9 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
         double theta;
         theta = state[2];
         auto r = action[i][0];
-        ROS_ERROR("state: %f %f %f", state[0], state[1], theta);
-        ROS_ERROR("state[0]: %f, action[0]: %f", state[0], action[i][0], cos(theta)*action[i][0], sin(theta)*action[i][0]);
         // Resolve global x component.
         action[i][0] = cos(theta)*r + state[0];
         action[i][1] = sin(theta)*r + state[1];
-        ROS_ERROR("action_x: %f, action_y: %f", action[i][0], action[i][1]);
-        // Resolve global y component.
-        //action[i][0] += cos(theta)*action[i][1];
-        //action[i][1] += sin(theta)*action[i][1];
         for (size_t j = 2; j < action[i].size(); ++j) {
             action[i][j] = action[i][j] + state[j];
         }
