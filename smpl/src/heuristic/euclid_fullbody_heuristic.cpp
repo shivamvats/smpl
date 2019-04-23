@@ -43,41 +43,47 @@ bool EuclidFullbodyHeuristic::init(RobotPlanningSpace* space)
         SMPL_WARN_NAMED(LOG, "EuclidFullbodyHeuristic recommends PointProjectionExtension or PoseProjectionExtension");
     }
 
-    Affine3 goal_pose = space->goal().pose;
+    return true;
+}
+
+void EuclidFullbodyHeuristic::updateGoal(const GoalConstraint& goal) {
+    Affine3 goal_pose = goal.pose;
     double goal_x = goal_pose.translation()[0];
     double goal_y = goal_pose.translation()[1];
     double base_x=0, base_y=0;
-    double arm_length = 0.3;
+    double arm_length = 0.60;
+    double robot_yaw_delta = 60 * 3.14/180;
 
     bool found_base = false;
 
-    for (int i=0; i<15; i++) {
+    for (int i=0; i<25; i++) {
         double theta = i*0.4;
         double possible_x = goal_x + arm_length*cos(theta);
         double possible_y = goal_y + arm_length*sin(theta);
-        double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
-        RobotState possible_state(space->robot()->jointCount(), 0);
+        double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x) + robot_yaw_delta;
+        RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
         possible_state[0] = possible_x;
         possible_state[1] = possible_y;
         possible_state[2] = possible_yaw;
 
         std::vector<double> heuristic_base_pose;
-        if (space->collisionChecker()->isStateValid(possible_state)) {
+        if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
             heuristic_base_pose.push_back(possible_x);
             heuristic_base_pose.push_back(possible_y);
             heuristic_base_pose.push_back(possible_yaw);
             m_heuristic_base_poses.push_back(heuristic_base_pose);
             found_base = true;
-
         }
     }
     if (!found_base) {
         ROS_ERROR("Could not find a valid base state.");
-        return false;
+    }
+    else {
+        ROS_ERROR( "%d Valid base pose found.", m_heuristic_base_poses.size() );
     }
 
-    return true;
 }
+
 
 void EuclidFullbodyHeuristic::setWeightX(double wx)
 {

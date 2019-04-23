@@ -169,9 +169,9 @@ bool ManipLatticeActionSpace::load(const std::string& action_filename)
         }
 
         if (i < (nrows - short_mprims)) {
-            addMotionPrim(mprim, false, false);
+            addMotionPrim(mprim, false);
         } else {
-            addMotionPrim(mprim, true, false);
+            addMotionPrim(mprim, true);
         }
     }
 

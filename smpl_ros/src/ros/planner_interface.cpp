@@ -53,6 +53,7 @@
 #include <smpl/heuristic/bfs_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
+#include <smpl/heuristic/euclid_fullbody_heuristic.h>
 #include <smpl/post_processing.h>
 #include <smpl/stl/memory.h>
 #include <smpl/time.h>
@@ -738,6 +739,7 @@ bool PlannerInterface::solve(
         res.error_code.val = moveit_msgs::MoveItErrorCodes::START_STATE_IN_COLLISION;
         return false;
     }
+
 
     std::vector<RobotState> path;
     if (!plan(req.allowed_planning_time, path)) {
