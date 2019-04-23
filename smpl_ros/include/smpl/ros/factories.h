@@ -76,6 +76,12 @@ auto MakeBFSHeuristic(
     const OccupancyGrid* grid)
     -> std::unique_ptr<RobotHeuristic>;
 
+auto MakeBFSFullbodyHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& param,
+    const OccupancyGrid* grid)
+    -> std::unique_ptr<RobotHeuristic>;
+
 auto MakeEuclidDistHeuristic(
     RobotPlanningSpace* space,
     const PlanningParams& params)

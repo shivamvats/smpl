@@ -166,6 +166,8 @@ public:
         std::vector<int>* costs) override;
     ///@}
 
+    ManipLatticeState* getHashEntry(int state_id) const;
+
 protected:
 
     /// \name discretization methods
@@ -174,7 +176,6 @@ protected:
     void stateToCoord(const RobotState& state, RobotCoord& coord) const;
     ///@}
 
-    ManipLatticeState* getHashEntry(int state_id) const;
 
     int getHashEntry(const RobotCoord& coord);
     int createHashEntry(const RobotCoord& coord, const RobotState& state);

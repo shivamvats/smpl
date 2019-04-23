@@ -15,7 +15,8 @@ find_package(
         leatherman
         roscpp
         smpl_urdf_robot_model
-        urdf)
+        urdf
+        trac_ik_lib)
 
 find_package(orocos_kdl REQUIRED)
 find_package(smpl REQUIRED)
@@ -29,6 +30,7 @@ catkin_package(
         roscpp
         smpl_urdf_robot_model
         urdf
+        trac_ik_lib
     DEPENDS
         orocos_kdl
         smpl)

@@ -15,6 +15,8 @@
     <depend>roscpp</depend>
     <depend> sbpl </depend>
     <depend>visualization_msgs</depend>
+    <depend>trac_ik_lib</depend>
+    <depend>orocos_kdl</depend>
 
     <export>
         <build_type>cmake</build_type>

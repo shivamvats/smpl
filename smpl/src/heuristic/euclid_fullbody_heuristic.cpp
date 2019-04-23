@@ -9,6 +9,9 @@
 // project includes
 #include <smpl/angles.h>
 #include <smpl/console/console.h>
+//#include <smpl_urdf_robot_model/robot_state.h>
+//#include <smpl_urdf_robot_model/urdf_robot_model.h>
+//#include <sbpl_kdl_robot_model/kdl_robot_model.h>
 
 namespace smpl {
 
@@ -56,7 +59,7 @@ void EuclidFullbodyHeuristic::updateGoal(const GoalConstraint& goal) {
 
     bool found_base = false;
 
-    for (int i=0; i<25; i++) {
+    for (int i=0; i<4; i++) {
         double theta = i*0.4;
         double possible_x = goal_x + arm_length*cos(theta);
         double possible_y = goal_y + arm_length*sin(theta);
@@ -81,6 +84,25 @@ void EuclidFullbodyHeuristic::updateGoal(const GoalConstraint& goal) {
     else {
         ROS_ERROR( "%d Valid base pose found.", m_heuristic_base_poses.size() );
     }
+
+    //KDL::Chain chain;
+    //KDL::JntArray ll, ul; //lower joint limits, upper joint limits
+
+    //bool valid = planningSpace()->m_tracik_solver_ptr->getKDLChain(chain);
+
+    //if (!valid)
+    //{
+    //    ROS_ERROR("There was no valid KDL chain found");
+    //    return;
+    //}
+
+    //valid = planningSpace()->m_tracik_solver_ptr->getKDLLimits(ll, ul);
+
+    //if (!valid)
+    //{
+    //    ROS_ERROR("There were no valid KDL joint limits found");
+    //    return;
+    //}
 
 }
 
@@ -144,6 +166,25 @@ int EuclidFullbodyHeuristic::GetGoalHeuristic(int state_id)
 
         auto& goal_pose = planningSpace()->goal().pose;
 
+        // IK
+        /*
+        for( int i=0; i<m_heuristic_base_poses.size(); i++ ){
+            // Set reference state in the robot planning model...
+            //
+            urdf::RobotState* reference_state = &dynamic_cast<urdf::URDFRobotModel*>(planningSpace()->robot())->robot_state;
+            ROS_INFO("x, y of ref state: %d, %d\n", reference_state->positions[0], reference_state->positions[1]);
+            reference_state->positions[0] = m_heuristic_base_poses[i][0];
+            reference_state->positions[1] = m_heuristic_base_poses[i][1];
+            reference_state->positions[2] = m_heuristic_base_poses[i][2];
+            ROS_INFO("Updated x, y of ref state: %d, %d\n", reference_state->positions[0], reference_state->positions[1]);
+
+            urdf::SetReferenceState(dynamic_cast<urdf::URDFRobotModel*>(planningSpace()->robot()), GetVariablePositions(reference_state));
+
+            RobotState ik_soltn;
+            dynamic_cast<KDLRobotModel*>( planningSpace()->robot() )->computeTracIKSearch( goal_pose, ik_soltn );
+        }
+        */
+
         auto goal_xyz = goal_pose.translation();
         auto p_xyz = p.translation();
 
@@ -155,6 +196,8 @@ int EuclidFullbodyHeuristic::GetGoalHeuristic(int state_id)
         auto dist_rot1 = fabs(shortest_angle_dist(Y, angle_p_goal));
 
         SMPL_DEBUG_NAMED(LOG, "p.Y: %f, angle_p_goal: %f, dist_rot1: %f", Y, angle_p_goal, dist_rot1);
+        auto target_base = m_heuristic_base_poses[0];
+        double base_dist = std::sqrt( (p_xyz.x() - target_base[0])*(p_xyz.x() - target_base[0]) + (p_xyz.y() - target_base[1])*(p_xyz.y() - target_base[1])) + fabs(shortest_angle_dist( target_base[2], Y));
 
         // Move to goal xyz.
         auto dist_xyz = computeDistance(p_xyz, goal_xyz);
@@ -166,7 +209,7 @@ int EuclidFullbodyHeuristic::GetGoalHeuristic(int state_id)
         auto dist = std::sqrt(m_rot_coeff*dist_rot1*dist_rot1 + dist_xyz);// + m_rot_coeff*dist_rot2;
         //auto dist = std::sqrt(dist_xyz);
 
-        const int h = FIXED_POINT_RATIO * dist;
+        const int h = FIXED_POINT_RATIO * (1.5*base_dist + dist);
         angles::get_euler_zyx(p.rotation(), Y, P, R);
         SMPL_DEBUG_NAMED(LOG, "h(%0.3f, %0.3f, %0.3f, %0.3f, %0.3f, %0.3f) = coeff*%f + coeff*%f = %d", p.translation()[0], p.translation()[1], p.translation()[2], Y, P, R, dist_rot1, dist_xyz, h);
 

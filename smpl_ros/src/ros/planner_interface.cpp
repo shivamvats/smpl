@@ -51,6 +51,7 @@
 #include <smpl/console/nonstd.h>
 #include <smpl/debug/visualize.h>
 #include <smpl/heuristic/bfs_heuristic.h>
+#include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
 #include <smpl/heuristic/euclid_fullbody_heuristic.h>
@@ -259,6 +260,12 @@ PlannerInterface::PlannerInterface(
         const PlanningParams& p)
     {
         return MakeBFSHeuristic(space, p, m_grid);
+    };
+
+    m_heuristic_factories["bfs_fullbody"] = [this](
+            RobotPlanningSpace* space,
+            const PlanningParams& p){
+        return MakeBFSFullbodyHeuristic(space, p, m_grid);
     };
 
     m_heuristic_factories["euclid"] = MakeEuclidDistHeuristic;
@@ -1067,6 +1074,7 @@ bool PlannerInterface::setGoal(const GoalConstraints& v_goal_constraints)
         SMPL_ERROR("Failed to set goal");
         return false;
     }
+    //m_pspace->m_tracik_solver_ptr = m_tracik_solver_ptr;
 
     for (auto& h : m_heuristics) {
         h.second->updateGoal(goal);

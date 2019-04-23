@@ -57,6 +57,8 @@ endforeach()
 find_package(Boost REQUIRED COMPONENTS filesystem program_options system)
 find_package(Eigen3 REQUIRED)
 find_package(sbpl REQUIRED)
+#find_package(smpl_urdf_robot_model)
+#find_package(sbpl_kdl_robot_model)
 
 if(SMPL_CONSOLE_ROS)
     find_package(roscpp QUIET)
@@ -149,6 +151,7 @@ set(SMPL_LIBRARY_SOURCES
     src/graph/simple_workspace_lattice_action_space.cpp
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
+    src/heuristic/bfs_fullbody_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
     src/heuristic/generic_egraph_heuristic.cpp
     src/heuristic/euclid_dist_heuristic.cpp
@@ -190,6 +193,8 @@ endif()
 list(APPEND PUBLIC_HEADERS ${EIGEN3_INCLUDE_DIR})
 list(APPEND PUBLIC_HEADERS ${Boost_INCLUDE_DIRS})
 list(APPEND PUBLIC_HEADERS ${SBPL_INCLUDE_DIRS})
+#list(APPEND PUBLIC_HEADERS ${smpl_urdf_robot_model_INCLUDE_DIRS})
+#list(APPEND PUBLIC_HEADERS ${sbpl_kdl_robot_model_INCLUDE_DIRS})
 
 list(APPEND INTERFACE_HEADERS ${SMPL_INSTALL_INCLUDE_DIR})
 
@@ -202,6 +207,8 @@ if(SMPL_HAS_ROSCONSOLE)
     list(APPEND PUBLIC_LIBRARIES ${roscpp_LIBRARIES})
 endif()
 list(APPEND PUBLIC_LIBRARIES ${SBPL_LIBRARIES})
+#list(APPEND PUBLIC_LIBRARIES ${smpl_urdf_robot_model_LIBRARIES})
+#list(APPEND PUBLIC_LIBRARIES ${sbpl_kdl_robot_model_LIBRARIES})
 
 macro(include_common_directories name)
     target_include_directories(${name} PRIVATE ${PRIVATE_HEADERS})
