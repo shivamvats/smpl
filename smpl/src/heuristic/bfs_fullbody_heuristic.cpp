@@ -29,6 +29,7 @@
 
 /// \author Andrew Dornbush
 
+#include <cmath>
 #include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/angles.h>
 
@@ -63,7 +64,6 @@ bool BfsFullbodyHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* 
     m_grid = grid;
 
     m_pp = space->getExtension<PointProjectionExtension>();
-    m_pose_ext = space->getExtension<PoseProjectionExtension>();
     if (m_pp != NULL) {
         SMPL_INFO_NAMED(LOG, "Got Point Projection Extension!");
     }
@@ -237,28 +237,36 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         return 0;
     }
 
-    Affine3 p_pose;
-    if (!m_pose_ext->projectToPose(state_id, p_pose)) {
-        return 0;
-    }
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
     double base_dist = 0;
     if( state_id != 0 ) {
         auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
-        std::vector<double> p_xyz{ robot_state[0], robot_state[1], robot_state[2] };
-
-        double Y, P, R;
-        angles::get_euler_zyx(p_pose.rotation(), Y, P, R);
-
         auto target_base = m_heuristic_base_poses[0];
-        base_dist = std::sqrt( (p_xyz[0] - target_base[0])*(p_xyz[0] - target_base[0]) + (p_xyz[1] - target_base[1])*(p_xyz[1] - target_base[1]));// + fabs(shortest_angle_dist( target_base[2], Y));
+
+        std::vector<double> p_xyyaw{ robot_state[0], robot_state[1], robot_state[2] };
+
+        double angle_p_target = atan2(target_base[1] - p_xyyaw[1], target_base[0] - p_xyyaw[0]);
+        //Rotate towards target
+        double dist_rot1 = fabs(shortest_angle_dist(p_xyyaw[2], angle_p_target));
+
+        // Move to target xyz
+        auto dist_xyz_target = sqrt( (p_xyyaw[0] - target_base[0])*(p_xyyaw[0] - target_base[0]) + p_xyyaw[1] - target_base[1]*(p_xyyaw[1] - target_base[1]) );
+
+        // Achieve target yaw
+        double dist_rot2 = fabs(shortest_angle_dist(angle_p_target, target_base[3]));
+
+        //base_dist = std::sqrt( (p_xyz[0] - target_base[0])*(p_xyz[0] - target_base[0]) + (p_xyz[1] - target_base[1])*(p_xyz[1] - target_base[1]));// + fabs(shortest_angle_dist( target_base[2], Y));
+        SMPL_DEBUG_NAMED(LOG, "rot1: %f, dist: %f, rot2: %f", dist_rot1, dist_xyz_target, dist_rot2);
+        base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
     } else {
         base_dist = 0;
     }
 
-    SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z() ));
     int heuristic = m_cost_per_cell*base_dist + getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+    //SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z() ));
+    SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
+    //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
     return heuristic;
 }

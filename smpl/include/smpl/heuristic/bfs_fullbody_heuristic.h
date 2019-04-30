@@ -93,7 +93,6 @@ private:
 
     std::unique_ptr<BFS_3D> m_bfs;
     PointProjectionExtension* m_pp = nullptr;
-    PoseProjectionExtension* m_pose_ext = nullptr;
 
     double m_inflation_radius = 0.0;
     int m_cost_per_cell = 1;
