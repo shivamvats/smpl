@@ -1,6 +1,8 @@
 #ifndef SMPL_DETAIL_ANSI_H
 #define SMPL_DETAIL_ANSI_H
 
+#include <smpl/console/ansi.h>
+
 namespace smpl {
 namespace console {
 

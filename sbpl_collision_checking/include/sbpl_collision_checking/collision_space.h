@@ -215,7 +215,7 @@ public:
         -> std::vector<visual::Marker> override;
     ///@}
 
-private:
+public:
 
     OccupancyGrid*                  m_grid;
     std::vector<std::string>        m_planning_variables;

@@ -30,6 +30,8 @@
 #ifndef SMPL_VOXELIZE_HPP
 #define SMPL_VOXELIZE_HPP
 
+#include <smpl/geometry/voxelize.h>
+
 #include <smpl/geometry/utils.h>
 
 namespace smpl {

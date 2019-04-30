@@ -32,6 +32,8 @@
 #ifndef SMPL_COST_FUNCTION_H
 #define SMPL_COST_FUNCTION_H
 
+#include <smpl/types.h>
+
 namespace smpl {
 
 class CostFunction
@@ -41,7 +43,7 @@ public:
     CostFunction();
     virtual ~CostFunction() { }
 
-    virtual int getCost(const RobotState& state, const RobotState& state) const = 0;
+    virtual int getCost(const RobotState& src, const RobotState& dst) const = 0;
 
 private:
 };

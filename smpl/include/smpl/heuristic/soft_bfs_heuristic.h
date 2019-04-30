@@ -33,7 +33,7 @@
 #define SMPL_SOFT_BFS_HEURISTIC_H
 
 // system includes
-#include <sbpl/heuristics/heuristic.h>
+#include <smpl/heuristic/robot_heuristic.h>
 
 namespace smpl {
 
