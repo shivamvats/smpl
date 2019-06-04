@@ -56,6 +56,8 @@ public:
     int costPerCell() const { return m_cost_per_cell; }
     void setCostPerCell(int cost);
 
+    void syncGridAndBfs();
+
     auto grid() const -> const OccupancyGrid* { return m_grid; }
 
     auto getWallsVisualization() const -> visual::Marker;
@@ -102,7 +104,6 @@ private:
     };
     std::vector<CellCoord> m_goal_cells;
 
-    void syncGridAndBfs();
     int getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const;
 };
 
