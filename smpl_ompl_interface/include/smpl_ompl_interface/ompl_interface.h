@@ -9,6 +9,12 @@
 #include <Eigen/Dense>
 #include <ompl/base/Planner.h>
 
+#if OMPL_VERSION_VALUE >= 1004000  // Version greater than 1.4.0
+typedef Eigen::VectorXd OMPLProjection;
+#else  // All other versions
+typedef ompl::base::EuclideanProjection OMPLProjection;
+#endif
+
 namespace smpl {
 
 class OccupancyGrid;

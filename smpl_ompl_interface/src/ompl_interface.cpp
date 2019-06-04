@@ -134,7 +134,7 @@ bool RobotModel::checkJointLimits(const smpl::RobotState& state, bool verbose)
 auto RobotModel::computeFK(const smpl::RobotState& state) -> Eigen::Affine3d
 {
     auto s = MakeStateOMPL(this->si->getStateSpace(), state);
-    ompl::base::EuclideanProjection projected;
+    OMPLProjection projected;
     this->projection->project(s.get(), projected);
     return Eigen::Translation3d(projected[0], projected[1], projected[2]) *
             Eigen::AngleAxisd(projected[3], Eigen::Vector3d::UnitZ()) *
