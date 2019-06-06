@@ -177,7 +177,7 @@ protected:
     bool parsePlannerID(
         const std::string& planner_id,
         std::string& space_name,
-        std::string& heuristic_name,
+        std::vector<std::string>& heuristic_names,
         std::string& search_name) const;
 
     bool reinitPlanner(const std::string& planner_id);

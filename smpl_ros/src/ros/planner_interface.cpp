@@ -38,6 +38,7 @@
 #include <fstream>
 #include <chrono>
 #include <utility>
+#include <sstream>
 
 // system includes
 #include <Eigen/Dense>
@@ -1342,39 +1343,23 @@ auto PlannerInterface::getBfsWallsVisualization() const -> visual::Marker
 bool PlannerInterface::parsePlannerID(
     const std::string& planner_id,
     std::string& space_name,
-    std::string& heuristic_name,
+    std::vector<std::string>& heuristic_names,
     std::string& search_name) const
 {
-    boost::regex alg_regex("(\\w+)(?:\\.(\\w+))?(?:\\.(\\w+))?");
+    std::vector<std::string> names;
+    std::stringstream ss(planner_id);
+    std::string name;
 
-    boost::smatch sm;
-
-    SMPL_INFO("Match planner id '%s' against regex '%s'", planner_id.c_str(), alg_regex.str().c_str());
-    if (!boost::regex_match(planner_id, sm, alg_regex)) {
-        return false;
+    while( ss.good() ){
+        std::getline( ss, name, '.' );
+        names.push_back( name );
     }
 
-    auto default_search_name = "arastar";
-    auto default_heuristic_name = "bfs";
-    auto default_space_name = "manip";
-
-    if (sm.size() < 2 || sm[1].str().empty()) {
-        search_name = default_search_name;
-    } else {
-        search_name = sm[1];
-    }
-
-    if (sm.size() < 3 || sm[2].str().empty()) {
-        heuristic_name = default_heuristic_name;
-    } else {
-        heuristic_name = sm[2];
-    }
-
-    if (sm.size() < 4 || sm[3].str().empty()) {
-        space_name = default_space_name;
-    } else {
-        space_name = sm[3];
-    }
+    search_name = names[0];
+    size_t n = names.size();
+    for( int i=1; i<n-1; i++ )
+        heuristic_names.push_back( names[i] );
+    space_name = names[n-1];
 
     return true;
 }
@@ -1390,12 +1375,13 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
     SMPL_INFO_NAMED(PI_LOGGER, "Initialize planner");
 
     std::string search_name;
-    std::string heuristic_name;
+    std::vector<std::string> heuristic_names;
     std::string space_name;
-    if (!parsePlannerID(planner_id, space_name, heuristic_name, search_name)) {
+    if (!parsePlannerID(planner_id, space_name, heuristic_names, search_name)) {
         SMPL_ERROR("Failed to parse planner setup");
         return false;
     }
+    auto heuristic_name = heuristic_names[0];
 
     SMPL_INFO_NAMED(PI_LOGGER, " -> Planning Space: %s", space_name.c_str());
     SMPL_INFO_NAMED(PI_LOGGER, " -> Heuristic: %s", heuristic_name.c_str());
