@@ -1381,10 +1381,11 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
         SMPL_ERROR("Failed to parse planner setup");
         return false;
     }
-    auto heuristic_name = heuristic_names[0];
 
     SMPL_INFO_NAMED(PI_LOGGER, " -> Planning Space: %s", space_name.c_str());
-    SMPL_INFO_NAMED(PI_LOGGER, " -> Heuristic: %s", heuristic_name.c_str());
+    for( int i=0; i<heuristic_names.size(); i++ ){
+        SMPL_INFO_NAMED(PI_LOGGER, " -> Heuristic: %s", heuristic_names[i].c_str());
+    }
     SMPL_INFO_NAMED(PI_LOGGER, " -> Search: %s", search_name.c_str());
 
     auto psait = m_space_factories.find(space_name);
@@ -1399,21 +1400,25 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
         return false;
     }
 
-    auto hait = m_heuristic_factories.find(heuristic_name);
-    if (hait == end(m_heuristic_factories)) {
-        SMPL_ERROR("Unrecognized heuristic name '%s'", heuristic_name.c_str());
-        return false;
-    }
-
-    auto heuristic = hait->second(m_pspace.get(), m_params);
-    if (!heuristic) {
-        SMPL_ERROR("Failed to build heuristic '%s'", heuristic_name.c_str());
-        return false;
-    }
 
     // initialize heuristics
     m_heuristics.clear();
-    m_heuristics.insert(std::make_pair(heuristic_name, std::move(heuristic)));
+    for( int i=0; i<heuristic_names.size(); i++ ){
+        auto heuristic_name = heuristic_names[i];
+        auto hait = m_heuristic_factories.find(heuristic_name);
+        if (hait == end(m_heuristic_factories)) {
+            SMPL_ERROR("Unrecognized heuristic name '%s'", heuristic_name.c_str());
+            return false;
+        }
+        auto heuristic = hait->second(m_pspace.get(), m_params);
+        if (!heuristic) {
+            SMPL_ERROR("Failed to build heuristic '%s'", heuristic_name.c_str());
+            return false;
+
+        }
+        m_heuristics.insert(std::make_pair(heuristic_name, std::move(heuristic)));
+    }
+
 
     for (auto& entry : m_heuristics) {
         m_pspace->insertHeuristic(entry.second.get());
