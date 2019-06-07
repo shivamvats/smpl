@@ -188,26 +188,6 @@ bool Init(
     model->m_search_discretization = 0.02;
     model->m_timeout = 0.005;
 
-    ROS_INFO("Initializing trac_ik");
-    model->m_tracik_solver_ptr = make_unique<TRAC_IK::TRAC_IK>( robot_description, "right_shoulder", tip_link, 0.05, 1e-3 );
-
-
-    //bool valid = model->m_tracik_solver_ptr->getKDLChain(model->m_tracik_chain);
-
-    //if (!valid)
-    //{
-    //    ROS_ERROR("There was no valid KDL chain found");
-    //    return false;
-    //}
-
-    //valid = model->m_tracik_solver_ptr->getKDLLimits(model->m_tracik_ll, model->m_tracik_ul);
-
-    //if (!valid)
-    //{
-    //    ROS_ERROR("There were no valid KDL joint limits found");
-    //    return false;
-    //}
-
     return true;
 }
 
@@ -306,43 +286,6 @@ bool KDLRobotModel::computeIKSearch(
         return false;
     }
     return false;
-}
-
-bool KDLRobotModel::computeTracIKSearch(
-        const Eigen::Affine3d& pose,
-        //const RobotState& start,
-        RobotState& solution ){
-
-    auto base_link = GetLink(&m_robot_model, &m_tracik_base_link);
-
-    //// seed configuration
-    //for (size_t i = 0; i < start.size(); i++) {
-    //    m_jnt_pos_in(i) = start[i];
-    //}
-
-    //// must be normalized for CartToJntSearch
-    //NormalizeAngles(this, &m_jnt_pos_in);
-
-    KDL::JntArray nominal(m_tracik_chain.getNrOfJoints());
-
-    for (uint j = 0; j < nominal.data.size(); j++)
-    {
-        nominal(j) = (m_tracik_ll(j) + m_tracik_ul(j)) / 2.0;
-    }
-
-    auto* T_map_kinematics = GetLinkTransform(&this->robot_state, base_link);
-    KDL::Frame frame_des;
-    tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);
-
-    KDL::JntArray result;
-    auto rc = m_tracik_solver_ptr->CartToJnt(nominal, frame_des, result);
-    NormalizeAngles(this, &result);
-    solution.resize(m_tracik_chain.getNrOfJoints());
-    for (size_t i = 0; i < solution.size(); ++i) {
-        solution[i] = result(i);
-    }
-    return true;
-
 }
 
 bool KDLRobotModel::computeIK(

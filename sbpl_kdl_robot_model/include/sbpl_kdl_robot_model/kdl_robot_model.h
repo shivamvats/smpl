@@ -47,7 +47,6 @@
 #include <smpl/robot_model.h>
 #include <smpl_urdf_robot_model/smpl_urdf_robot_model.h>
 #include <urdf/model.h>
-#include <trac_ik/trac_ik.hpp>
 
 namespace smpl {
 
@@ -73,11 +72,6 @@ public:
         const Eigen::Affine3d& pose,
         const RobotState& start,
         RobotState& solution);
-
-    bool computeTracIKSearch(
-            const Eigen::Affine3d& pose,
-            //const RobotState& start,
-            RobotState& solution);
 
     void printRobotModelInformation();
 
@@ -121,19 +115,13 @@ public:
 
     std::string m_base_link;
     std::string m_tip_link;
-    std::string m_tracik_base_link;
 
     KDL::Tree m_tree;
     KDL::Chain m_chain;
 
-    KDL::Chain m_tracik_chain;
-    KDL::JntArray m_tracik_ll, m_tracik_ul;
-
     std::unique_ptr<KDL::ChainFkSolverPos_recursive>    m_fk_solver;
     std::unique_ptr<KDL::ChainIkSolverVel_pinv>         m_ik_vel_solver;
     std::unique_ptr<KDL::ChainIkSolverPos_NR_JL>        m_ik_solver;
-
-    std::unique_ptr<TRAC_IK::TRAC_IK> m_tracik_solver_ptr;
 
     // ik solver settings
     int m_max_iterations;

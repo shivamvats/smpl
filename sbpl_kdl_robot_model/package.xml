@@ -16,5 +16,4 @@
     <depend>smpl</depend>
     <depend>smpl_urdf_robot_model</depend>
     <depend>urdf</depend>
-    <depend>trac_ik_lib</depend>
 </package>
