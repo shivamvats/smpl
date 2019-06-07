@@ -370,8 +370,8 @@ bool InitRobotModel(
                 v.limits.max_velocity = e.second->limits->velocity;
                 v.limits.max_effort = e.second->limits->velocity;
             } else {
-                v.limits.max_velocity = 0.0;
-                v.limits.max_effort = 0.0;
+                v.limits.max_velocity = 10.0;
+                v.limits.max_effort = 10.0;
             }
             robot_model.variables.push_back(std::move(v));
             break;
@@ -429,6 +429,7 @@ bool InitRobotModel(
         link.children = prev_joint;
     }
 
+
     // ...connect parent and child links to joints
     for (auto& joint : robot_model.joints) {
         auto j = urdf->getJoint(joint.name);
@@ -483,6 +484,7 @@ bool InitRobotModel(
         fprintf(stderr, "Failed to find root link '%s'\n", urdf->root_link_->name.c_str());
         return false;
     }
+
 
     // ...finally, connect the root joint to the root link
     robot_model.root_joint = get_joint(&robot_model, wj.name);

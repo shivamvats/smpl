@@ -90,7 +90,7 @@ bool Init(
     world_joint.name = "map";
     world_joint.origin = Eigen::Affine3d::Identity(); // IMPORTANT
     world_joint.axis = Eigen::Vector3d::Zero();
-    world_joint.type = urdf::JointType::Floating;
+    world_joint.type = urdf::JointType::Fixed;
     if (!urdf::InitRobotModel(
             &model->m_robot_model, &model->m_urdf, &world_joint))
     {
@@ -109,6 +109,14 @@ bool Init(
         ROS_ERROR("Failed to fetch the KDL chain for the robot. (root: %s, tip: %s)", base_link.c_str(), tip_link.c_str());
         return false;
     }
+    /*
+    KDL::Chain world_chain;
+    KDL::Segment s = Segment(Joint(Joint::RotX),
+                Frame(Rotation::RPY(0.0,M_PI/4,0.0),
+                          Vector(0.1,0.2,0.3) )
+                    );
+    world_chain.addSegment()
+    */
     model->m_base_link = base_link;
     model->m_tip_link = tip_link;
     model->m_kinematics_link = GetLink(&model->m_robot_model, &base_link);
@@ -123,7 +131,7 @@ bool Init(
         auto& child_joint_name = segment.getJoint().getName();
         auto* joint = GetJoint(&model->m_robot_model, &child_joint_name);
         if (GetVariableCount(joint) > 1) {
-            ROS_WARN("> 1 variable per joint");
+            ROS_WARN("> 1 variable per joint.");
             return false;
         }
         if (GetVariableCount(joint) == 0) {
@@ -179,6 +187,27 @@ bool Init(
     model->m_free_angle = free_angle;
     model->m_search_discretization = 0.02;
     model->m_timeout = 0.005;
+
+    ROS_INFO("Initializing trac_ik");
+    model->m_tracik_solver_ptr = make_unique<TRAC_IK::TRAC_IK>( robot_description, "right_shoulder", tip_link, 0.05, 1e-3 );
+
+
+    //bool valid = model->m_tracik_solver_ptr->getKDLChain(model->m_tracik_chain);
+
+    //if (!valid)
+    //{
+    //    ROS_ERROR("There was no valid KDL chain found");
+    //    return false;
+    //}
+
+    //valid = model->m_tracik_solver_ptr->getKDLLimits(model->m_tracik_ll, model->m_tracik_ul);
+
+    //if (!valid)
+    //{
+    //    ROS_ERROR("There were no valid KDL joint limits found");
+    //    return false;
+    //}
+
     return true;
 }
 
@@ -277,6 +306,43 @@ bool KDLRobotModel::computeIKSearch(
         return false;
     }
     return false;
+}
+
+bool KDLRobotModel::computeTracIKSearch(
+        const Eigen::Affine3d& pose,
+        //const RobotState& start,
+        RobotState& solution ){
+
+    auto base_link = GetLink(&m_robot_model, &m_tracik_base_link);
+
+    //// seed configuration
+    //for (size_t i = 0; i < start.size(); i++) {
+    //    m_jnt_pos_in(i) = start[i];
+    //}
+
+    //// must be normalized for CartToJntSearch
+    //NormalizeAngles(this, &m_jnt_pos_in);
+
+    KDL::JntArray nominal(m_tracik_chain.getNrOfJoints());
+
+    for (uint j = 0; j < nominal.data.size(); j++)
+    {
+        nominal(j) = (m_tracik_ll(j) + m_tracik_ul(j)) / 2.0;
+    }
+
+    auto* T_map_kinematics = GetLinkTransform(&this->robot_state, base_link);
+    KDL::Frame frame_des;
+    tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);
+
+    KDL::JntArray result;
+    auto rc = m_tracik_solver_ptr->CartToJnt(nominal, frame_des, result);
+    NormalizeAngles(this, &result);
+    solution.resize(m_tracik_chain.getNrOfJoints());
+    for (size_t i = 0; i < solution.size(); ++i) {
+        solution[i] = result(i);
+    }
+    return true;
+
 }
 
 bool KDLRobotModel::computeIK(

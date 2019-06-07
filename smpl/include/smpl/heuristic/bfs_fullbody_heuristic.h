@@ -29,8 +29,8 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_BFS_HEURISTIC_H
-#define SMPL_BFS_HEURISTIC_H
+#ifndef SMPL_BFS_FULLBODY_HEURISTIC_H
+#define SMPL_BFS_FULLBODY_HEURISTIC_H
 
 // standard includes
 #include <memory>
@@ -43,11 +43,11 @@
 
 namespace smpl {
 
-class BfsHeuristic : public RobotHeuristic
+class BfsFullbodyHeuristic : public RobotHeuristic
 {
 public:
 
-    virtual ~BfsHeuristic();
+    virtual ~BfsFullbodyHeuristic();
 
     bool init(RobotPlanningSpace* space, const OccupancyGrid* grid);
 
@@ -55,8 +55,6 @@ public:
     void setInflationRadius(double radius);
     int costPerCell() const { return m_cost_per_cell; }
     void setCostPerCell(int cost);
-
-    void syncGridAndBfs();
 
     auto grid() const -> const OccupancyGrid* { return m_grid; }
 
@@ -86,6 +84,8 @@ public:
     int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
     void syncGridAndBfs();
+
+    std::vector<std::vector<double>> m_heuristic_base_poses;
 
 private:
 

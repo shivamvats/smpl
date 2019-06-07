@@ -140,6 +140,9 @@ public:
         -> std::vector<visual::Marker>;
     ///@}
 
+    //std::shared_ptr<TRAC_IK::TRAC_IK> m_tracik_solver_ptr;
+    std::map<std::string, std::unique_ptr<RobotHeuristic>> m_heuristics;
+
 protected:
 
     RobotModel* m_robot;
@@ -160,7 +163,6 @@ protected:
     // planner components
 
     std::unique_ptr<RobotPlanningSpace> m_pspace;
-    std::map<std::string, std::unique_ptr<RobotHeuristic>> m_heuristics;
     std::unique_ptr<SBPLPlanner> m_planner;
 
     int m_sol_cost;

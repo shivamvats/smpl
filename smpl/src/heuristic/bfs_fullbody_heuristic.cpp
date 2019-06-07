@@ -29,7 +29,9 @@
 
 /// \author Andrew Dornbush
 
-#include <smpl/heuristic/bfs_heuristic.h>
+#include <cmath>
+#include <smpl/heuristic/bfs_fullbody_heuristic.h>
+#include <smpl/angles.h>
 
 // project includes
 #include <smpl/bfs3d/bfs3d.h>
@@ -38,17 +40,18 @@
 #include <smpl/debug/colors.h>
 #include <smpl/grid/grid.h>
 #include <smpl/heap/intrusive_heap.h>
+#include <smpl/graph/manip_lattice.h>
 
 namespace smpl {
 
-static const char* LOG = "heuristic.bfs";
+static const char* LOG = "heuristic.bfs_fullbody";
 
-BfsHeuristic::~BfsHeuristic()
+BfsFullbodyHeuristic::~BfsFullbodyHeuristic()
 {
     // empty to allow forward declaration of BFS_3D
 }
 
-bool BfsHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid)
+bool BfsFullbodyHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid)
 {
     if (!RobotHeuristic::init(space)) {
         return false;
@@ -69,17 +72,17 @@ bool BfsHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid)
     return true;
 }
 
-void BfsHeuristic::setInflationRadius(double radius)
+void BfsFullbodyHeuristic::setInflationRadius(double radius)
 {
     m_inflation_radius = radius;
 }
 
-void BfsHeuristic::setCostPerCell(int cost_per_cell)
+void BfsFullbodyHeuristic::setCostPerCell(int cost_per_cell)
 {
     m_cost_per_cell = cost_per_cell;
 }
 
-void BfsHeuristic::updateGoal(const GoalConstraint& goal)
+void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 {
     switch (goal.type) {
     case GoalType::XYZ_GOAL:
@@ -107,6 +110,41 @@ void BfsHeuristic::updateGoal(const GoalConstraint& goal)
         m_goal_cells.emplace_back(gx, gy, gz);
 
         m_bfs->run(gx, gy, gz);
+
+        auto goal_pose = goal.pose;
+        double goal_x = goal_pose.translation()[0];
+        double goal_y = goal_pose.translation()[1];
+        double base_x=0, base_y=0;
+        double arm_length = 0.55;
+        double robot_yaw_delta = 60 * 3.14/180;
+
+        bool found_base = false;
+
+        for (int i=0; i<7; i++) {
+            double theta = i*0.2;
+            double possible_x = goal_x + arm_length*cos(theta);
+            double possible_y = goal_y + arm_length*sin(theta);
+            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x) + robot_yaw_delta;
+            RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
+            possible_state[0] = possible_x;
+            possible_state[1] = possible_y;
+            possible_state[2] = possible_yaw;
+
+            std::vector<double> heuristic_base_pose;
+            if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
+                heuristic_base_pose.push_back(possible_x);
+                heuristic_base_pose.push_back(possible_y);
+                heuristic_base_pose.push_back(possible_yaw);
+                m_heuristic_base_poses.push_back(heuristic_base_pose);
+                found_base = true;
+            }
+        }
+        if (!found_base) {
+            ROS_ERROR("Could not find a valid base state.");
+        }
+        else {
+            ROS_ERROR( "%d Valid base pose found.", m_heuristic_base_poses.size() );
+        }
         break;
     }
     case GoalType::MULTIPLE_POSE_GOAL:
@@ -143,7 +181,7 @@ void BfsHeuristic::updateGoal(const GoalConstraint& goal)
     }
 }
 
-double BfsHeuristic::getMetricStartDistance(double x, double y, double z)
+double BfsFullbodyHeuristic::getMetricStartDistance(double x, double y, double z)
 {
     int start_id = planningSpace()->getStartStateID();
 
@@ -169,7 +207,7 @@ double BfsHeuristic::getMetricStartDistance(double x, double y, double z)
     return grid()->resolution() * (abs(dx) + abs(dy) + abs(dz));
 }
 
-double BfsHeuristic::getMetricGoalDistance(double x, double y, double z)
+double BfsFullbodyHeuristic::getMetricGoalDistance(double x, double y, double z)
 {
     int gx, gy, gz;
     grid()->worldToGrid(x, y, z, gx, gy, gz);
@@ -180,7 +218,7 @@ double BfsHeuristic::getMetricGoalDistance(double x, double y, double z)
     }
 }
 
-Extension* BfsHeuristic::getExtension(size_t class_code)
+Extension* BfsFullbodyHeuristic::getExtension(size_t class_code)
 {
     if (class_code == GetClassCode<RobotHeuristic>()) {
         return this;
@@ -188,7 +226,7 @@ Extension* BfsHeuristic::getExtension(size_t class_code)
     return nullptr;
 }
 
-int BfsHeuristic::GetGoalHeuristic(int state_id)
+int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
 {
     if (m_pp == NULL) {
         return 0;
@@ -201,30 +239,56 @@ int BfsHeuristic::GetGoalHeuristic(int state_id)
 
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
+    double base_dist = 0;
+    if( state_id != 0 ) {
+        auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
+        auto target_base = m_heuristic_base_poses[0];
 
-    int heuristic = getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+        std::vector<double> p_xyyaw{ robot_state[0], robot_state[1], robot_state[2] };
+
+        double angle_p_target = atan2(target_base[1] - p_xyyaw[1], target_base[0] - p_xyyaw[0]);
+        //Rotate towards target
+        double dist_rot1 = fabs(shortest_angle_dist(p_xyyaw[2], angle_p_target));
+
+        // Move to target xyz
+        auto dist_xyz_target = sqrt( (p_xyyaw[0] - target_base[0])*(p_xyyaw[0] - target_base[0]) + p_xyyaw[1] - target_base[1]*(p_xyyaw[1] - target_base[1]) );
+
+        // Achieve target yaw
+        double dist_rot2 = fabs(shortest_angle_dist(angle_p_target, target_base[3]));
+
+        //base_dist = std::sqrt( (p_xyz[0] - target_base[0])*(p_xyz[0] - target_base[0]) + (p_xyz[1] - target_base[1])*(p_xyz[1] - target_base[1]));// + fabs(shortest_angle_dist( target_base[2], Y));
+        SMPL_DEBUG_NAMED(LOG, "rot1: %f, dist: %f, rot2: %f", dist_rot1, dist_xyz_target, dist_rot2);
+        base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
+    } else {
+        base_dist = 0;
+    }
+
+    int heuristic = m_cost_per_cell*base_dist + getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+    //SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z() ));
+    SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
+    //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
     return heuristic;
 }
 
-int BfsHeuristic::GetStartHeuristic(int state_id)
+int BfsFullbodyHeuristic::GetStartHeuristic(int state_id)
 {
-    SMPL_WARN_ONCE("BfsHeuristic::GetStartHeuristic unimplemented");
+    SMPL_WARN_ONCE("BfsFullbodyHeuristic::GetStartHeuristic unimplemented");
     return 0;
 }
 
-int BfsHeuristic::GetFromToHeuristic(int from_id, int to_id)
+int BfsFullbodyHeuristic::GetFromToHeuristic(int from_id, int to_id)
 {
     if (to_id == planningSpace()->getGoalStateID()) {
         return GetGoalHeuristic(from_id);
     }
     else {
-        SMPL_WARN_ONCE("BfsHeuristic::GetFromToHeuristic unimplemented for arbitrary state pair");
+        SMPL_WARN_ONCE("BfsFullbodyHeuristic::GetFromToHeuristic unimplemented for arbitrary state pair");
         return 0;
     }
 }
 
-auto BfsHeuristic::getWallsVisualization() const -> visual::Marker
+auto BfsFullbodyHeuristic::getWallsVisualization() const -> visual::Marker
 {
     std::vector<Vector3> centers;
     int dimX = grid()->numCellsX();
@@ -258,7 +322,7 @@ auto BfsHeuristic::getWallsVisualization() const -> visual::Marker
             "bfs_walls");
 }
 
-auto BfsHeuristic::getValuesVisualization() -> visual::Marker
+auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
 {
     bool all_invalid = true;
     for (auto& cell : m_goal_cells) {
@@ -386,7 +450,7 @@ auto BfsHeuristic::getValuesVisualization() -> visual::Marker
             "bfs_values");
 }
 
-void BfsHeuristic::syncGridAndBfs()
+void BfsFullbodyHeuristic::syncGridAndBfs()
 {
     const int xc = grid()->numCellsX();
     const int yc = grid()->numCellsY();
@@ -410,7 +474,7 @@ void BfsHeuristic::syncGridAndBfs()
     SMPL_DEBUG_NAMED(LOG, "%d/%d (%0.3f%%) walls in the bfs heuristic", wall_count, cell_count, 100.0 * (double)wall_count / cell_count);
 }
 
-int BfsHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const
+int BfsFullbodyHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const
 {
     if (!bfs.inBounds(x, y, z)) {
         return Infinity;

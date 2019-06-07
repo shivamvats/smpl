@@ -52,8 +52,10 @@
 #include <smpl/console/nonstd.h>
 #include <smpl/debug/visualize.h>
 #include <smpl/heuristic/bfs_heuristic.h>
+#include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
+#include <smpl/heuristic/euclid_fullbody_heuristic.h>
 #include <smpl/post_processing.h>
 #include <smpl/stl/memory.h>
 #include <smpl/time.h>
@@ -261,7 +263,15 @@ PlannerInterface::PlannerInterface(
         return MakeBFSHeuristic(space, p, m_grid);
     };
 
+    m_heuristic_factories["bfs_fullbody"] = [this](
+            RobotPlanningSpace* space,
+            const PlanningParams& p){
+        return MakeBFSFullbodyHeuristic(space, p, m_grid);
+    };
+
     m_heuristic_factories["euclid"] = MakeEuclidDistHeuristic;
+    m_heuristic_factories["euclid_diff"] = MakeEuclidDiffHeuristic;
+    m_heuristic_factories["euclid_fullbody"] = MakeEuclidFullbodyHeuristic;
 
     m_heuristic_factories["joint_distance"] = MakeJointDistHeuristic;
 
@@ -738,6 +748,7 @@ bool PlannerInterface::solve(
         return false;
     }
 
+
     std::vector<RobotState> path;
     if (!plan(req.allowed_planning_time, path)) {
         SMPL_ERROR("Failed to plan within alotted time frame (%0.2f seconds, %d expansions)", req.allowed_planning_time, m_planner->get_n_expands());
@@ -856,7 +867,7 @@ bool ExtractGoalPoseFromGoalConstraints(
     Eigen::Affine3d& goal_pose)
 {
     assert(!constraints.position_constraints.empty() &&
-            constraints.orientation_constraints.empty());
+           !constraints.orientation_constraints.empty());
 
     // TODO: where is it enforced that the goal position/orientation constraints
     // should be for the planning link?
@@ -1064,6 +1075,7 @@ bool PlannerInterface::setGoal(const GoalConstraints& v_goal_constraints)
         SMPL_ERROR("Failed to set goal");
         return false;
     }
+    //m_pspace->m_tracik_solver_ptr = m_tracik_solver_ptr;
 
     for (auto& h : m_heuristics) {
         h.second->updateGoal(goal);
