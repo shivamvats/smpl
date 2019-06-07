@@ -1075,7 +1075,6 @@ bool PlannerInterface::setGoal(const GoalConstraints& v_goal_constraints)
         SMPL_ERROR("Failed to set goal");
         return false;
     }
-    //m_pspace->m_tracik_solver_ptr = m_tracik_solver_ptr;
 
     for (auto& h : m_heuristics) {
         h.second->updateGoal(goal);
