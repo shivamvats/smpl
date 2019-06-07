@@ -19,6 +19,5 @@
     <depend>smpl</depend>
     <depend>trajectory_msgs</depend>
     <depend>visualization_msgs</depend>
-    <depend>trac_ik_lib</depend>
     <depend>orocos_kdl</depend>
 </package>

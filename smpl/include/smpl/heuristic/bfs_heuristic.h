@@ -85,7 +85,6 @@ public:
     int GetStartHeuristic(int state_id) override;
     int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
-    void syncGridAndBfs();
 
 private:
 

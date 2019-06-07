@@ -37,7 +37,6 @@
 
 // system includes
 #include <sbpl/discrete_space_information/environment.h>
-//#include <trac_ik/trac_ik.hpp>
 
 // project includes
 #include <smpl/collision_checker.h>
@@ -125,7 +124,6 @@ public:
         bool verbose,
         FILE* f = nullptr) override = 0;
     ///@}
-    //std::shared_ptr<TRAC_IK::TRAC_IK> m_tracik_solver_ptr;
 
 private:
 

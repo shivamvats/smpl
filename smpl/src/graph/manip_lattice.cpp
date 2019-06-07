@@ -822,7 +822,6 @@ bool ManipLattice::setGoal(const GoalConstraint& goal)
     switch (goal.type) {
     case GoalType::XYZ_GOAL:
     case GoalType::XYZ_RPY_GOAL:
-        ROS_ERROR("Inside setgoal");
         success = setGoalPose(goal);
         break;
     case GoalType::MULTIPLE_POSE_GOAL:
@@ -965,7 +964,6 @@ bool ManipLattice::extractPath(
 
                 // check the validity of this transition
                 if (!checkAction(prev_state, action)) {
-                    ROS_ERROR("Action invalid.");
                     continue;
                 }
 
@@ -989,7 +987,6 @@ bool ManipLattice::extractPath(
             opath.push_back(best_goal_state->state);
         } else {
             auto* entry = getHashEntry(curr_id);
-            ROS_ERROR("Size of hash entry: %d", entry->state.size());
             if (!entry) {
                 SMPL_ERROR_NAMED(G_LOG, "Failed to get state entry state %d", curr_id);
                 return false;
