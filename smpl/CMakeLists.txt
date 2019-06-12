@@ -56,7 +56,12 @@ endforeach()
 
 find_package(Boost REQUIRED COMPONENTS filesystem program_options system)
 find_package(Eigen3 REQUIRED)
-find_package(sbpl REQUIRED)
+find_package(sbpl QUIET)
+if( NOT sbpl_FOUND )
+    set( SBPL_LIBRARIES /usr0/home/svats/ros/sbpl/build)
+    set( SBPL_INCLUDE_DIRS /usr0/home/svats/ros/sbpl/src/include )
+    message(WARNING "Using local version of sbpl")
+endif()
 #find_package(smpl_urdf_robot_model)
 #find_package(sbpl_kdl_robot_model)
 
