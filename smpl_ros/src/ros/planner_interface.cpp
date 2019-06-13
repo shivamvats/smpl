@@ -291,6 +291,7 @@ PlannerInterface::PlannerInterface(
     m_planner_factories["arastar"] = MakeARAStar;
     m_planner_factories["awastar"] = MakeAWAStar;
     m_planner_factories["mhastar"] = MakeMHAStar;
+    m_planner_factories["mrmhastar"] = MakeMRMHAStar;
     m_planner_factories["larastar"] = MakeLARAStar;
     m_planner_factories["egwastar"] = MakeEGWAStar;
     m_planner_factories["padastar"] = MakePADAStar;

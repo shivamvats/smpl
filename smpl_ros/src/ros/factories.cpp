@@ -774,6 +774,48 @@ auto MakeMHAStar(
     return std::move(search);
 }
 
+auto MakeMRMHAStar(
+    RobotPlanningSpace* space,
+    RobotHeuristic* heuristic,
+    const PlanningParams& params)
+    -> std::unique_ptr<SBPLPlanner>
+{
+    struct MRMHAPlannerAdapter : public MRMHAPlanner {
+        std::vector<Heuristic*> heuristics;
+
+        MRMHAPlannerAdapter(
+            DiscreteSpaceInformation* space,
+            Heuristic* anchor,
+            Heuristic** heurs,
+            int hcount)
+        :
+            MRMHAPlanner(space, anchor, heurs, hcount)
+        { }
+    };
+
+    std::vector<Heuristic*> heuristics;
+    heuristics.push_back(heuristic);
+
+    auto search = make_unique<MRMHAPlannerAdapter>(
+            space, heuristics[0], &heuristics[0], heuristics.size());
+
+    search->heuristics = std::move(heuristics);
+
+    double mha_eps;
+    params.param("epsilon_mha", mha_eps, 1.0);
+    search->set_initial_mha_eps(mha_eps);
+
+    double epsilon;
+    params.param("epsilon", epsilon, 1.0);
+    search->set_initialsolution_eps(epsilon);
+
+    bool search_mode;
+    params.param("search_mode", search_mode, false);
+    search->set_search_mode(search_mode);
+
+    return std::move(search);
+}
+
 auto MakeLARAStar(
     RobotPlanningSpace* space,
     RobotHeuristic* heuristic,

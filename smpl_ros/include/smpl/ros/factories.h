@@ -135,6 +135,12 @@ auto MakeMHAStar(
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>;
 
+auto MakeMRMHAStar(
+    RobotPlanningSpace* space,
+    RobotHeuristic* heuristic,
+    const PlanningParams& params)
+    -> std::unique_ptr<SBPLPlanner>;
+
 auto MakeLARAStar(
     RobotPlanningSpace* space,
     RobotHeuristic* heuristic,
