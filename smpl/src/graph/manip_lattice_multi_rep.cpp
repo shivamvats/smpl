@@ -28,10 +28,10 @@ bool ManipLatticeMultiRep::init(
 {
     SMPL_DEBUG_NAMED(G_LOG, "Initialize Manip Lattice");
 
-    if (!action_spaces.size()) {
-        SMPL_ERROR_NAMED(G_LOG, "Action Space is empty");
-        return false;
-    }
+    //if (!action_spaces.size()) {
+    //    SMPL_ERROR_NAMED(G_LOG, "Action Space is empty");
+    //    return false;
+    //}
 
     if (resolutions.size() != _robot->jointVariableCount()) {
         SMPL_ERROR_NAMED(G_LOG, "Insufficient variable resolutions for robot model");

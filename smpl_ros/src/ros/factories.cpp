@@ -5,6 +5,7 @@
 #include <smpl/console/nonstd.h>
 #include <smpl/graph/adaptive_workspace_lattice.h>
 #include <smpl/graph/manip_lattice.h>
+#include <smpl/graph/manip_lattice_multi_rep.h>
 #include <smpl/graph/manip_lattice_action_space.h>
 #include <smpl/graph/manip_lattice_egraph.h>
 #include <smpl/graph/simple_workspace_lattice_action_space.h>
@@ -27,6 +28,8 @@
 #include <smpl/search/awastar.h>
 #include <smpl/search/experience_graph_planner.h>
 #include <smpl/stl/memory.h>
+#include <sbpl/planners/mhaplanner.h>
+#include <sbpl/planners/mrmhaplanner.h>
 
 namespace smpl {
 
@@ -216,6 +219,128 @@ auto MakeManipLattice(
             ait->type == MotionPrimitive::SHORT_DISTANCE)
         {
             SMPL_DEBUG_STREAM_NAMED(PI_LOGGER, "    action: " << ait->action);
+        }
+    }
+
+    return std::move(space);
+}
+
+auto MakeManipLatticeMultiRep(
+    RobotModel* robot,
+    CollisionChecker* checker,
+    const PlanningParams& params,
+    const OccupancyGrid* grid)
+    -> std::unique_ptr<RobotPlanningSpace>
+{
+    ////////////////
+    // Parameters //
+    ////////////////
+
+    auto resolutions = std::vector<double>(robot->jointVariableCount());
+
+    std::string disc_string;
+    if (!params.getParam("discretization", disc_string)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'discretization' not found in planning params");
+        return nullptr;
+    }
+
+    auto disc = ParseMapFromString<double>(disc_string);
+    SMPL_DEBUG_NAMED(PI_LOGGER, "Parsed discretization for %zu joints", disc.size());
+
+    for (size_t vidx = 0; vidx < robot->jointVariableCount(); ++vidx) {
+        auto& vname = robot->getPlanningJoints()[vidx];
+        std::string joint_name, local_name;
+        if (IsMultiDOFJointVariable(vname, &joint_name, &local_name)) {
+            // adjust variable name if a variable of a multi-dof joint
+            auto mdof_vname = joint_name + "_" + local_name;
+            auto dit = disc.find(mdof_vname);
+            if (dit == end(disc)) {
+                SMPL_ERROR_NAMED(PI_LOGGER, "Discretization for variable '%s' not found in planning parameters", vname.c_str());
+                return nullptr;
+            }
+            resolutions[vidx] = dit->second;
+        } else {
+            auto dit = disc.find(vname);
+            if (dit == end(disc)) {
+                SMPL_ERROR_NAMED(PI_LOGGER, "Discretization for variable '%s' not found in planning parameters", vname.c_str());
+                return nullptr;
+            }
+            resolutions[vidx] = dit->second;
+        }
+
+        SMPL_DEBUG_NAMED(PI_LOGGER, "resolution(%s) = %0.3f", vname.c_str(), resolutions[vidx]);
+    }
+
+    ManipLatticeActionSpaceParams action_params;
+    if (!GetManipLatticeActionSpaceParams(action_params, params)) {
+        return nullptr;
+    }
+
+    ////////////////////
+    // Initialization //
+    ////////////////////
+
+    // helper struct to couple the lifetime of ManipLatticeMultiRep and
+    // ManipLatticeActionSpaces
+    struct SimpleManipLatticeMultiRep : public ManipLatticeMultiRep {
+        std::vector<ManipLatticeActionSpace*> manip_action_spaces;
+    };
+
+    auto space = make_unique<SimpleManipLatticeMultiRep>();
+
+
+    std::vector<ActionSpace*> action_spaces;
+    for( ManipLatticeActionSpace* actions: space->manip_action_spaces ){
+        action_spaces.push_back( actions );
+    }
+    if (!space->init(robot, checker, resolutions, action_spaces)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice");
+        return nullptr;
+    }
+
+    for( auto action_space: space->manip_action_spaces ){
+        if( !action_space->init( space.get() ) ){
+            SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice Action Space");
+            return nullptr;
+        }
+    }
+
+    if (grid) {
+        space->setVisualizationFrameId(grid->getReferenceFrame());
+    }
+
+    for( auto actions: space->manip_action_spaces ){
+        actions->useMultipleIkSolutions(action_params.use_multiple_ik_solutions);
+        actions->useAmp(MotionPrimitive::SNAP_TO_XYZ, action_params.use_xyz_snap_mprim);
+        actions->useAmp(MotionPrimitive::SNAP_TO_RPY, action_params.use_rpy_snap_mprim);
+        actions->useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.use_xyzrpy_snap_mprim);
+        actions->useAmp(MotionPrimitive::SHORT_DISTANCE, action_params.use_short_dist_mprims);
+        actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ, action_params.xyz_snap_thresh);
+        actions->ampThresh(MotionPrimitive::SNAP_TO_RPY, action_params.rpy_snap_thresh);
+        actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
+        actions->ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
+
+        if (!actions->load(action_params.mprim_filename)) {
+            SMPL_ERROR("Failed to load actions from file '%s'", action_params.mprim_filename.c_str());
+            return nullptr;
+        }
+        SMPL_DEBUG_NAMED(PI_LOGGER, "Action Set:");
+        for (auto ait = actions->begin(); ait != actions->end(); ++ait) {
+            SMPL_DEBUG_NAMED(PI_LOGGER, "  type: %s", to_cstring(ait->type));
+            if (ait->type == MotionPrimitive::SNAP_TO_RPY) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_RPY));
+            } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_XYZ) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ));
+            } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ_RPY) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY));
+            } else if (ait->type == MotionPrimitive::LONG_DISTANCE ||
+                ait->type == MotionPrimitive::SHORT_DISTANCE)
+            {
+                SMPL_DEBUG_STREAM_NAMED(PI_LOGGER, "    action: " << ait->action);
+            }
         }
     }
 
