@@ -18,18 +18,18 @@
 
 namespace smpl {
 
-ManipLatticeMultiRep::~ManipLattice() { }
+ManipLatticeMultiRep::~ManipLatticeMultiRep() { }
 
 bool ManipLatticeMultiRep::init(
     RobotModel* _robot,
     CollisionChecker* checker,
     const std::vector<double>& resolutions,
-    ActionSpace* actions)
+    std::vector<ActionSpace*>& action_spaces)
 {
     SMPL_DEBUG_NAMED(G_LOG, "Initialize Manip Lattice");
 
-    if (!actions) {
-        SMPL_ERROR_NAMED(G_LOG, "Action Space is null");
+    if (!action_spaces.size()) {
+        SMPL_ERROR_NAMED(G_LOG, "Action Space is empty");
         return false;
     }
 
@@ -88,7 +88,7 @@ bool ManipLatticeMultiRep::init(
     m_coord_vals = std::move(discretization);
     m_coord_deltas = std::move(deltas);
 
-    m_actions = actions;
+    m_action_spaces = action_spaces;
 
     return true;
 }
@@ -106,7 +106,8 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         std::vector<int>* costs ) {
     assert(state_id >= 0 && state_id < m_states.size() && "state id out of bounds");
     assert(succs && costs && "successor buffer is null");
-    assert(m_actions && "action space is uninitialized");
+    assert(rep_id < m_action_spaces.size() && "representation id outside bounds.");
+    assert(m_action_spaces.size() && "action space is uninitialized");
 
     SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "expanding state %d", state_id);
 
@@ -130,7 +131,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     int goal_succ_count = 0;
 
     std::vector<Action> actions;
-    if (!m_actions->apply(parent_entry->state, actions)) {
+    if (!m_action_spaces[rep_id]->apply(parent_entry->state, actions)) {
         SMPL_WARN("Failed to get actions");
         return;
     }
@@ -185,10 +186,6 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "Got %d goal successors!", goal_succ_count);
     }
 }
-
-Stopwatch GetLazySuccsStopwatch("GetLazySuccs", 10);
-
-
 
 int ManipLatticeMultiRep::cost(
     ManipLatticeState* HashEntry1,
@@ -346,7 +343,8 @@ bool ManipLatticeMultiRep::setStart(const RobotState& state)
 
     m_start_state_id = getOrCreateState(start_coord, state);
 
-    m_actions->updateStart(state);
+    for( auto action_space: m_action_spaces )
+        action_space->updateStart(state);
 
     // notify observers of updated start state
     return RobotPlanningSpace::setStart(state);
@@ -375,7 +373,8 @@ bool ManipLatticeMultiRep::setGoal(const GoalConstraint& goal)
     }
 
     if (success) {
-        m_actions->updateGoal(goal);
+        for( auto action_space: m_action_spaces )
+            action_space->updateGoal(goal);
     }
 
     return success;
@@ -453,7 +452,8 @@ bool ManipLatticeMultiRep::extractPath(
             auto& prev_state = prev_entry->state;
 
             std::vector<Action> actions;
-            if (!m_actions->apply(prev_state, actions)) {
+            //XXX At the goal, consider the full Action Space.
+            if (!m_action_spaces[0]->apply(prev_state, actions)) {
                 SMPL_ERROR_NAMED(G_LOG, "Failed to get actions while extracting the path");
                 return false;
             }
