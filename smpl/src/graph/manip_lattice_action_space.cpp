@@ -100,6 +100,7 @@ bool ManipLatticeActionSpace::init(ManipLattice* space)
 /// dvi1         dvi2        ... dvim
 bool ManipLatticeActionSpace::load(const std::string& action_filename)
 {
+    ROS_ERROR("%s", action_filename.c_str());
     FILE* fCfg = fopen(action_filename.c_str(), "r");
     if (!fCfg) {
         SMPL_ERROR("Failed to open action set file. (file: '%s')", action_filename.c_str());

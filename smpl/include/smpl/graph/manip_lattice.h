@@ -168,7 +168,8 @@ public:
 
     ManipLatticeState* getHashEntry(int state_id) const;
 
-protected:
+//protected:
+    public:
 
     /// \name discretization methods
     ///@{
@@ -196,7 +197,7 @@ protected:
     auto getStateVisualization(const RobotState& vars, const std::string& ns)
         -> std::vector<visual::Marker>;
 
-private:
+    public:
 
     ForwardKinematicsInterface* m_fk_iface = nullptr;
     ActionSpace* m_actions = nullptr;

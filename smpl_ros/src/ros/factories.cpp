@@ -283,23 +283,28 @@ auto MakeManipLatticeMultiRep(
     // helper struct to couple the lifetime of ManipLatticeMultiRep and
     // ManipLatticeActionSpaces
     struct SimpleManipLatticeMultiRep : public ManipLatticeMultiRep {
-        std::vector<ManipLatticeActionSpace*> manip_action_spaces;
+        std::vector<ManipLatticeActionSpace> manip_action_spaces;
     };
 
     auto space = make_unique<SimpleManipLatticeMultiRep>();
 
 
+    for( int i=0; i<3; i++ ){
+        auto manip_action_space = ManipLatticeActionSpace();
+        space->manip_action_spaces.push_back( manip_action_space );
+    }
+
     std::vector<ActionSpace*> action_spaces;
-    for( ManipLatticeActionSpace* actions: space->manip_action_spaces ){
-        action_spaces.push_back( actions );
+    for( auto& actions: space->manip_action_spaces ){
+        action_spaces.push_back( &actions );
     }
     if (!space->init(robot, checker, resolutions, action_spaces)) {
         SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice");
         return nullptr;
     }
 
-    for( auto action_space: space->manip_action_spaces ){
-        if( !action_space->init( space.get() ) ){
+    for( auto& action_space: space->manip_action_spaces ){
+        if( !action_space.init( space.get() ) ){
             SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice Action Space");
             return nullptr;
         }
@@ -309,33 +314,33 @@ auto MakeManipLatticeMultiRep(
         space->setVisualizationFrameId(grid->getReferenceFrame());
     }
 
-    for( auto actions: space->manip_action_spaces ){
-        actions->useMultipleIkSolutions(action_params.use_multiple_ik_solutions);
-        actions->useAmp(MotionPrimitive::SNAP_TO_XYZ, action_params.use_xyz_snap_mprim);
-        actions->useAmp(MotionPrimitive::SNAP_TO_RPY, action_params.use_rpy_snap_mprim);
-        actions->useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.use_xyzrpy_snap_mprim);
-        actions->useAmp(MotionPrimitive::SHORT_DISTANCE, action_params.use_short_dist_mprims);
-        actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ, action_params.xyz_snap_thresh);
-        actions->ampThresh(MotionPrimitive::SNAP_TO_RPY, action_params.rpy_snap_thresh);
-        actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
-        actions->ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
+    for( auto& actions: space->manip_action_spaces ){
+        actions.useMultipleIkSolutions(action_params.use_multiple_ik_solutions);
+        actions.useAmp(MotionPrimitive::SNAP_TO_XYZ, action_params.use_xyz_snap_mprim);
+        actions.useAmp(MotionPrimitive::SNAP_TO_RPY, action_params.use_rpy_snap_mprim);
+        actions.useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.use_xyzrpy_snap_mprim);
+        actions.useAmp(MotionPrimitive::SHORT_DISTANCE, action_params.use_short_dist_mprims);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ, action_params.xyz_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_RPY, action_params.rpy_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
 
-        if (!actions->load(action_params.mprim_filename)) {
+        if (!actions.load(action_params.mprim_filename)) {
             SMPL_ERROR("Failed to load actions from file '%s'", action_params.mprim_filename.c_str());
             return nullptr;
         }
         SMPL_DEBUG_NAMED(PI_LOGGER, "Action Set:");
-        for (auto ait = actions->begin(); ait != actions->end(); ++ait) {
+        for (auto ait = actions.begin(); ait != actions.end(); ++ait) {
             SMPL_DEBUG_NAMED(PI_LOGGER, "  type: %s", to_cstring(ait->type));
             if (ait->type == MotionPrimitive::SNAP_TO_RPY) {
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_RPY) ? "true" : "false");
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_RPY));
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_RPY));
             } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ) {
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_XYZ) ? "true" : "false");
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ));
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_XYZ) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ));
             } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ_RPY) {
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions->useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY) ? "true" : "false");
-                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions->ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY));
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY));
             } else if (ait->type == MotionPrimitive::LONG_DISTANCE ||
                 ait->type == MotionPrimitive::SHORT_DISTANCE)
             {

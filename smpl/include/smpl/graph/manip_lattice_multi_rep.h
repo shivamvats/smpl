@@ -111,9 +111,10 @@ protected:
 
 private:
 
-    ForwardKinematicsInterface* m_fk_iface = nullptr;
+    //ForwardKinematicsInterface* m_fk_iface = nullptr;
     std::vector<ActionSpace*> m_action_spaces;
 
+    /*
     // cached from robot model
     std::vector<double> m_min_limits;
     std::vector<double> m_max_limits;
@@ -147,6 +148,7 @@ private:
     /// \name planning
     ///@{
     ///@}
+    //*/
 };
 
 } // namespace smpl
