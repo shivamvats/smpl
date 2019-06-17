@@ -38,6 +38,7 @@ static const char* PI_LOGGER = "simple";
 struct ManipLatticeActionSpaceParams
 {
     std::string mprim_filename;
+    std::string mprim_filenames;
     bool use_multiple_ik_solutions = false;
     bool use_xyz_snap_mprim;
     bool use_rpy_snap_mprim;
@@ -58,6 +59,10 @@ bool GetManipLatticeActionSpaceParams(
 {
     if (!pp.getParam("mprim_filename", params.mprim_filename)) {
         SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'mprim_filename' not found in planning params");
+        return false;
+    }
+    if (!pp.getParam("mprim_filenames", params.mprim_filenames)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'mprim_filenames' not found in planning params");
         return false;
     }
 
@@ -326,10 +331,20 @@ auto MakeManipLatticeMultiRep(
         actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
         actions.ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
 
-        if (!actions.load(action_params.mprim_filename)) {
-            SMPL_ERROR("Failed to load actions from file '%s'", action_params.mprim_filename.c_str());
-            return nullptr;
+        std::stringstream ss(action_params.mprim_filenames);
+        std::vector<std::string> mprim_filenames;
+        std::string name;
+
+        while( ss.good() ){
+            std::getline( ss, name, ',' );
+            mprim_filenames.push_back(name);
+            if (!actions.load(name)) {
+                SMPL_ERROR("Failed to load actions from file '%s'", name.c_str());
+                return nullptr;
+            }
         }
+        assert( mprim_filenames.size() == space->manip_action_spaces.size() && "Sufficient number of mprim files not found.");
+
         SMPL_DEBUG_NAMED(PI_LOGGER, "Action Set:");
         for (auto ait = actions.begin(); ait != actions.end(); ++ait) {
             SMPL_DEBUG_NAMED(PI_LOGGER, "  type: %s", to_cstring(ait->type));

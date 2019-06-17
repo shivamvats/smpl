@@ -216,7 +216,7 @@ PlannerInterface::PlannerInterface(
     m_space_factories["manip_mr"] = [this]( RobotModel* r,
             CollisionChecker* c,
             const PlanningParams& p ) {
-        return MakeManipLatticeMultiRep( r, c, p, m_grid, m_heuristics.size() );
+        return MakeManipLatticeMultiRep( r, c, p, m_grid, m_num_heuristics );
     };
 
     m_space_factories["manip_lattice_egraph"] = [this](
@@ -1399,12 +1399,26 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
         SMPL_ERROR("Failed to parse planner setup");
         return false;
     }
+    m_num_heuristics = heuristic_names.size();
 
+    SMPL_INFO_NAMED(PI_LOGGER, " -> Planning Space: %s", space_name.c_str());
     for( int i=0; i<heuristic_names.size(); i++ ){
         SMPL_INFO_NAMED(PI_LOGGER, " -> Heuristic: %s", heuristic_names[i].c_str());
     }
-    SMPL_INFO_NAMED(PI_LOGGER, " -> Planning Space: %s", space_name.c_str());
     SMPL_INFO_NAMED(PI_LOGGER, " -> Search: %s", search_name.c_str());
+
+    auto psait = m_space_factories.find(space_name);
+    if (psait == end(m_space_factories)) {
+        SMPL_ERROR("Unrecognized planning space name '%s'", space_name.c_str());
+        return false;
+    }
+
+    m_pspace = psait->second(m_robot, m_checker, m_params);
+    if (!m_pspace) {
+        SMPL_ERROR("Failed to build planning space '%s'", space_name.c_str());
+        return false;
+    }
+
 
     // initialize heuristics
     m_heuristics.clear();
@@ -1423,19 +1437,6 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
         }
         m_heuristics.insert(std::make_pair(heuristic_name, std::move(heuristic)));
     }
-
-    auto psait = m_space_factories.find(space_name);
-    if (psait == end(m_space_factories)) {
-        SMPL_ERROR("Unrecognized planning space name '%s'", space_name.c_str());
-        return false;
-    }
-
-    m_pspace = psait->second(m_robot, m_checker, m_params);
-    if (!m_pspace) {
-        SMPL_ERROR("Failed to build planning space '%s'", space_name.c_str());
-        return false;
-    }
-
 
     for (auto& entry : m_heuristics) {
         m_pspace->insertHeuristic(entry.second.get());

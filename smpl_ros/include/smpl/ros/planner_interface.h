@@ -152,6 +152,7 @@ protected:
 
     PlanningParams m_params;
 
+    int m_num_heuristics;
     // params
     bool m_initialized;
 
