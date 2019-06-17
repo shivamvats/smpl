@@ -229,7 +229,8 @@ auto MakeManipLatticeMultiRep(
     RobotModel* robot,
     CollisionChecker* checker,
     const PlanningParams& params,
-    const OccupancyGrid* grid)
+    const OccupancyGrid* grid,
+    const int num_heuristics)
     -> std::unique_ptr<RobotPlanningSpace>
 {
     ////////////////
@@ -289,7 +290,7 @@ auto MakeManipLatticeMultiRep(
     auto space = make_unique<SimpleManipLatticeMultiRep>();
 
 
-    for( int i=0; i<3; i++ ){
+    for( int i=0; i<num_heuristics; i++ ){
         auto manip_action_space = ManipLatticeActionSpace();
         space->manip_action_spaces.push_back( manip_action_space );
     }

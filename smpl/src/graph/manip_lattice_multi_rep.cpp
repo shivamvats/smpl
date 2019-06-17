@@ -380,23 +380,6 @@ bool ManipLatticeMultiRep::setGoal(const GoalConstraint& goal)
     return success;
 }
 
-/*
-/// \brief Return the ID of the goal state or -1 if no goal has been set.
-int ManipLatticeMultiRep::getGoalStateID() const
-{
-    return m_goal_state_id;
-}
-
-/// \brief Return the ID of the start state or -1 if no start has been set.
-///
-/// This returns the reserved id corresponding to all states which are goal
-/// states and not the state id of any particular unique state.
-int ManipLatticeMultiRep::getStartStateID() const
-{
-    return m_start_state_id;
-}
-*/
-
 bool ManipLatticeMultiRep::extractPath(
     const std::vector<int>& idpath,
     std::vector<RobotState>& path)
