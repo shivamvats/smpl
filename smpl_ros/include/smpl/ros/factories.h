@@ -100,6 +100,11 @@ auto MakeEuclidDiffHeuristic(
     const PlanningParams& params)
     -> std::unique_ptr<RobotHeuristic>;
 
+auto MakeArmRetractHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>;
+
 auto MakeEuclidFullbodyHeuristic(
     RobotPlanningSpace* space,
     const PlanningParams& params)
