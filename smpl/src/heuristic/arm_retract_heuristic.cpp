@@ -33,6 +33,7 @@
 
 // standard includes
 #include <cmath>
+#include <iostream>
 
 // project includes
 #include <smpl/angles.h>
@@ -40,7 +41,7 @@
 
 namespace smpl {
 
-static const char* LOG = "heuristic.euclid_dist";
+static const char* LOG = "heuristic.arm_retract";
 
 static inline
 double EuclideanDistance(
@@ -133,20 +134,28 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         auto manip_space = dynamic_cast<ManipLattice*>(planningSpace());
 
         auto extract_ext = planningSpace()->getExtension<ExtractRobotStateExtension>();
-        auto target_state = extract_ext->extractState(state_id);
+        RobotState target_state = extract_ext->extractState(state_id);
         // Retract arm.
+        //for(int i=3;i<target_state.size();i++)
+        //    target_state[i] = 0;
+        //Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
+
+        //const double dist = computeDistance(p, target_pose);
+        double dist = 0;
         for(int i=3;i<target_state.size();i++)
-            target_state[i] = 0;
-        Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
-        //auto& goal_pose = planningSpace()->goal().pose;
+            dist += target_state[i]*target_state[i];
+        dist = std::sqrt(dist);
 
-        const double dist = computeDistance(p, target_pose);
+        int h = FIXED_POINT_RATIO * dist;
 
-        const int h = FIXED_POINT_RATIO * dist;
-
-        double Y, P, R;
-        angles::get_euler_zyx(p.rotation(), Y, P, R);
-        SMPL_DEBUG_NAMED(LOG, "h(%0.3f, %0.3f, %0.3f, %0.3f, %0.3f, %0.3f) = %d", p.translation()[0], p.translation()[1], p.translation()[2], Y, P, R, h);
+        //double Y, P, R;
+        //angles::get_euler_zyx(p.rotation(), Y, P, R);
+        //SMPL_DEBUG_NAMED(LOG, "h(%0.3f, %0.3f, %0.3f, %0.3f, %0.3f, %0.3f) = %d", p.translation()[0], p.translation()[1], p.translation()[2], Y, P, R, h);
+        //angles::get_euler_zyx(target_pose.rotation(), Y, P, R);
+        //SMPL_DEBUG_NAMED(LOG, "Target pose: Y, P, R: %0.3f, %0.3f, %0.3f", Y, P, R);
+        SMPL_DEBUG_NAMED(LOG, "Arm Retract Heuristic: h(%f, %f, %f, %f, %f) = %d",
+                target_state[3], target_state[4], target_state[5], target_state[6],
+                target_state[7], h);
 
         return h;
     } else if (m_point_ext) {
@@ -159,12 +168,16 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         auto extract_ext = planningSpace()->getExtension<ExtractRobotStateExtension>();
         auto target_state = extract_ext->extractState(state_id);
         // Retract arm.
-        for(int i=3;i<target_state.size();i++)
-            target_state[i] = 0;
-        Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
-        Vector3 gp(target_pose.translation());
+        //for(int i=3;i<target_state.size();i++)
+        //    target_state[i] = 0;
+        //Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
+        //Vector3 gp(target_pose.translation());
 
-        double dist = computeDistance(p, gp);
+        double dist = 0;
+        for(int i=3;i<target_state.size();i++)
+            dist += target_state[i]*target_state[i];
+        dist = std::sqrt(dist);
+        //double dist = computeDistance(p, gp);
 
         const int h = FIXED_POINT_RATIO * dist;
         SMPL_DEBUG_NAMED(LOG, "h(%d) = %d", state_id, h);
@@ -281,7 +294,11 @@ double ArmRetractHeuristic::computeDistance(
         dot = qa.dot(qb);
     }
 
-    double dr2 = angles::normalize_angle(2.0 * std::acos(dot));
+    if(dot >= 1)
+        dot = 1;
+
+    double angle = std::acos(dot);
+    double dr2 = angles::normalize_angle(2.0 * angle);
     dr2 *= (m_rot_coeff * dr2);
 
     SMPL_DEBUG_NAMED(LOG, "Compute Distance: sqrt(%f + %f)", dp2, dr2);
