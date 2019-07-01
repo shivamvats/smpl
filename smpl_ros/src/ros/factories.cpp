@@ -904,7 +904,7 @@ auto MakeAWAStar(
 
 auto MakeMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> robot_heuristics,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>
 {
@@ -922,10 +922,11 @@ auto MakeMHAStar(
     };
 
     std::vector<Heuristic*> heuristics;
-    heuristics.push_back(heuristic);
+    for(auto& h: robot_heuristics)
+        heuristics.push_back(h);
 
     auto search = make_unique<MHAPlannerAdapter>(
-            space, heuristics[0], &heuristics[0], heuristics.size());
+            space, heuristics[0], &(heuristics[1]), heuristics.size()-1);
 
     search->heuristics = std::move(heuristics);
 
@@ -946,7 +947,7 @@ auto MakeMHAStar(
 
 auto MakeMRMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> robot_heuristics,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>
 {
@@ -964,10 +965,11 @@ auto MakeMRMHAStar(
     };
 
     std::vector<Heuristic*> heuristics;
-    heuristics.push_back(heuristic);
+    for(auto& h: robot_heuristics)
+        heuristics.push_back(h);
 
     auto search = make_unique<MRMHAPlannerAdapter>(
-            space, heuristics[0], &heuristics[0], heuristics.size());
+            space, heuristics[0], &(heuristics[1]), heuristics.size()-1);
 
     search->heuristics = std::move(heuristics);
 

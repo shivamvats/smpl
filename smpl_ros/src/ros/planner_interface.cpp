@@ -56,6 +56,7 @@
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
 #include <smpl/heuristic/euclid_fullbody_heuristic.h>
+#include <smpl/heuristic/arm_retract_heuristic.h>
 #include <smpl/post_processing.h>
 #include <smpl/stl/memory.h>
 #include <smpl/time.h>
@@ -278,6 +279,7 @@ PlannerInterface::PlannerInterface(
     m_heuristic_factories["euclid"] = MakeEuclidDistHeuristic;
     m_heuristic_factories["euclid_diff"] = MakeEuclidDiffHeuristic;
     m_heuristic_factories["euclid_fullbody"] = MakeEuclidFullbodyHeuristic;
+    m_heuristic_factories["arm_retract"] = MakeArmRetractHeuristic;
 
     m_heuristic_factories["joint_distance"] = MakeJointDistHeuristic;
 
@@ -296,11 +298,12 @@ PlannerInterface::PlannerInterface(
 
     m_planner_factories["arastar"] = MakeARAStar;
     m_planner_factories["awastar"] = MakeAWAStar;
-    m_planner_factories["mhastar"] = MakeMHAStar;
-    m_planner_factories["mrmhastar"] = MakeMRMHAStar;
     m_planner_factories["larastar"] = MakeLARAStar;
     m_planner_factories["egwastar"] = MakeEGWAStar;
     m_planner_factories["padastar"] = MakePADAStar;
+
+    m_mh_planner_factories["mhastar"] = MakeMHAStar;
+    m_mh_planner_factories["mrmhastar"] = MakeMRMHAStar;
 }
 
 PlannerInterface::~PlannerInterface()
@@ -1435,8 +1438,10 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
             return false;
 
         }
+        m_heuristic_vector.push_back( heuristic.get() );
         m_heuristics.insert(std::make_pair(heuristic_name, std::move(heuristic)));
     }
+    SMPL_ERROR("Number of heuristics: %d", m_heuristics.size());
 
     for (auto& entry : m_heuristics) {
         m_pspace->insertHeuristic(entry.second.get());
@@ -1444,17 +1449,28 @@ bool PlannerInterface::reinitPlanner(const std::string& planner_id)
 
     // Heuristics must be initialized before trying to set up MR-MHA*.
     auto pait = m_planner_factories.find(search_name);
-    if (pait == end(m_planner_factories)) {
+    auto mh_pait = m_mh_planner_factories.find(search_name);
+    if( pait != end(m_planner_factories) ){
+        auto first_heuristic = begin(m_heuristics);
+        m_planner = pait->second(m_pspace.get(), first_heuristic->second.get(), m_params);
+        if (!m_planner) {
+            SMPL_ERROR("Failed to build planner '%s'", search_name.c_str());
+            return false;
+        }
+    }
+    else if( mh_pait != end(m_mh_planner_factories) ){
+        m_planner = mh_pait->second(m_pspace.get(), m_heuristic_vector, m_params);
+        if (!m_planner) {
+            SMPL_ERROR("Failed to build planner '%s'", search_name.c_str());
+            return false;
+        }
+
+    }
+    else{
         SMPL_ERROR("Unrecognized search name '%s'", search_name.c_str());
         return false;
     }
 
-    auto first_heuristic = begin(m_heuristics);
-    m_planner = pait->second(m_pspace.get(), first_heuristic->second.get(), m_params);
-    if (!m_planner) {
-        SMPL_ERROR("Failed to build planner '%s'", search_name.c_str());
-        return false;
-    }
     m_planner_id = planner_id;
     return true;
 }

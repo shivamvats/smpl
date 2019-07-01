@@ -4,6 +4,7 @@
 // standard includes
 #include <memory>
 #include <string>
+#include <vector>
 
 class SBPLPlanner;
 
@@ -144,13 +145,13 @@ auto MakeAWAStar(
 
 auto MakeMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> heuristics,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>;
 
 auto MakeMRMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> heuristic,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>;
 
