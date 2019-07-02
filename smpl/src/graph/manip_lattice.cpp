@@ -774,6 +774,20 @@ auto ManipLattice::getStateVisualization(
     return markers;
 }
 
+auto ManipLattice::getStateVisualization(
+    const RobotState& state,
+    const std::string& ns,
+    const visual::Color& color)
+    -> std::vector<visual::Marker>
+{
+    auto markers = collisionChecker()->getCollisionModelVisualization(state);
+    for (auto& marker : markers) {
+        marker.ns = ns;
+        marker.color = color;
+    }
+    return markers;
+}
+
 bool ManipLattice::setStart(const RobotState& state)
 {
     SMPL_DEBUG_NAMED(G_LOG, "set the start state");

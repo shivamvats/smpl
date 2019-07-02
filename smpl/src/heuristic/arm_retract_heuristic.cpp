@@ -147,6 +147,7 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         dist = std::sqrt(dist);
 
         int h = FIXED_POINT_RATIO * dist;
+        h = h*10;
 
         //double Y, P, R;
         //angles::get_euler_zyx(p.rotation(), Y, P, R);

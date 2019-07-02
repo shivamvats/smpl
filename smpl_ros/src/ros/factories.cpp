@@ -321,7 +321,16 @@ auto MakeManipLatticeMultiRep(
         space->setVisualizationFrameId(grid->getReferenceFrame());
     }
 
-    for( auto& actions: space->manip_action_spaces ){
+    std::stringstream ss(action_params.mprim_filenames);
+    std::vector<std::string> mprim_filenames;
+    std::string name;
+    while( ss.good() ){
+        std::getline( ss, name, ',' );
+        mprim_filenames.push_back(name);
+    }
+
+    for( int i=0; i<space->manip_action_spaces.size(); i++ ){
+        auto& actions = space->manip_action_spaces[i];
         actions.useMultipleIkSolutions(action_params.use_multiple_ik_solutions);
         actions.useAmp(MotionPrimitive::SNAP_TO_XYZ, action_params.use_xyz_snap_mprim);
         actions.useAmp(MotionPrimitive::SNAP_TO_RPY, action_params.use_rpy_snap_mprim);
@@ -332,19 +341,10 @@ auto MakeManipLatticeMultiRep(
         actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
         actions.ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
 
-        std::stringstream ss(action_params.mprim_filenames);
-        std::vector<std::string> mprim_filenames;
-        std::string name;
-
-        while( ss.good() ){
-            std::getline( ss, name, ',' );
-            mprim_filenames.push_back(name);
-            if (!actions.load(name)) {
-                SMPL_ERROR("Failed to load actions from file '%s'", name.c_str());
-                return nullptr;
-            }
+        if (!actions.load(mprim_filenames[i])) {
+            SMPL_ERROR("Failed to load actions from file '%s'", name.c_str());
+            return nullptr;
         }
-        assert( mprim_filenames.size() == space->manip_action_spaces.size() && "Sufficient number of mprim files not found.");
 
         SMPL_DEBUG_NAMED(PI_LOGGER, "Action Set:");
         for (auto ait = actions.begin(); ait != actions.end(); ++ait) {
@@ -365,6 +365,7 @@ auto MakeManipLatticeMultiRep(
             }
         }
     }
+    assert( mprim_filenames.size() == space->manip_action_spaces.size() && "Sufficient number of mprim files not found.");
 
     return std::move(space);
 }

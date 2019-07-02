@@ -196,6 +196,10 @@ public:
 
     auto getStateVisualization(const RobotState& vars, const std::string& ns)
         -> std::vector<visual::Marker>;
+    auto getStateVisualization(const RobotState& vars,
+            const std::string& ns,
+            const visual::Color& color)
+        -> std::vector<visual::Marker>;
 
     public:
 

@@ -4,6 +4,7 @@
 // standard includes
 #include <iomanip>
 #include <sstream>
+#include <stdlib.h>
 
 // system includes
 #include <sbpl/planners/planner.h>
@@ -126,7 +127,23 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "  angles: " << parent_entry->state);
 
     auto* vis_name = "expansion";
-    SV_SHOW_DEBUG_NAMED(vis_name, getStateVisualization(parent_entry->state, vis_name));
+    float c = 255.0;
+    visual::Color color{0, 0, 0, c};
+    switch(rep_id){
+        case 0:
+            color.r = c;
+            break;
+        case 1:
+            color.g = c;
+            break;
+        case 2:
+            color.b = c;
+            break;
+        default:
+            break;
+    }
+    SMPL_ERROR("Rep_id : %d, Color: %f, %f, %f", rep_id, color.r, color.g, color.b);
+    SV_SHOW_DEBUG_NAMED(vis_name, getStateVisualization(parent_entry->state, vis_name, color));
 
     int goal_succ_count = 0;
 
@@ -143,8 +160,8 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     for (size_t i = 0; i < actions.size(); ++i) {
         auto& action = actions[i];
 
-        SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "    action %zu:", i);
-        SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      waypoints: %zu", action.size());
+        //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "    action %zu:", i);
+        //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      waypoints: %zu", action.size());
 
         if (!checkAction(parent_entry->state, action)) {
             continue;
@@ -175,11 +192,11 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         costs->push_back(cost(parent_entry, succ_entry, is_goal_succ));
 
         // log successor details
-        SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      succ: %zu", i);
-        SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "        id: %5i", succ_state_id);
-        SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "        coord: " << succ_coord);
-        SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "        state: " << succ_entry->state);
-        SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "        cost: %5d", cost(parent_entry, succ_entry, is_goal_succ));
+        //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      succ: %zu", i);
+        //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "        id: %5i", succ_state_id);
+        //SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "        coord: " << succ_coord);
+        //SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "        state: " << succ_entry->state);
+        //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "        cost: %5d", cost(parent_entry, succ_entry, is_goal_succ));
     }
 
     if (goal_succ_count > 0) {
