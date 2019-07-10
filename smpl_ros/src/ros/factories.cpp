@@ -12,6 +12,7 @@
 #include <smpl/graph/workspace_lattice_action_space.h>
 #include <smpl/graph/workspace_lattice_egraph.h>
 #include <smpl/heuristic/bfs_heuristic.h>
+#include <smpl/heuristic/magic_arm_heuristic.h>
 #include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/euclid_dist_heuristic.h>
@@ -516,6 +517,23 @@ auto MakeBFSHeuristic(
     -> std::unique_ptr<RobotHeuristic>
 {
     auto h = make_unique<BfsHeuristic>();
+    h->setCostPerCell(params.cost_per_cell);
+    double inflation_radius;
+    params.param("bfs_inflation_radius", inflation_radius, 0.0);
+    h->setInflationRadius(inflation_radius);
+    if (!h->init(space, grid)) {
+        return nullptr;
+    }
+    return std::move(h);
+};
+
+auto MakeMagicArmHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params,
+    const OccupancyGrid* grid)
+    -> std::unique_ptr<RobotHeuristic>
+{
+    auto h = make_unique<MagicArmHeuristic>();
     h->setCostPerCell(params.cost_per_cell);
     double inflation_radius;
     params.param("bfs_inflation_radius", inflation_radius, 0.0);

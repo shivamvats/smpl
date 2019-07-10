@@ -152,6 +152,7 @@ set(SMPL_LIBRARY_SOURCES
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
     src/heuristic/bfs_fullbody_heuristic.cpp
+    src/heuristic/magic_arm_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
     src/heuristic/generic_egraph_heuristic.cpp
     src/heuristic/euclid_dist_heuristic.cpp
