@@ -210,11 +210,10 @@ int MagicArmHeuristic::GetGoalHeuristic(int state_id)
     if(p.z() < 0.7){
         auto extract_ext = planningSpace()->getExtension<ExtractRobotStateExtension>();
         RobotState robot_state = extract_ext->extractState(state_id);
-
-        double magic_j1= -1.0;
-        double magic_j2= -1.0;
-        double magic_j3= -1.0;
-        double magic_j4= -1.6;
+        double magic_j1= -0.67;//-1.0;
+        double magic_j2= -0.625;//-1.0;
+        double magic_j3= 0.639;//-1.0;
+        double magic_j4= -1;//-1.6;
         double delta_right_j1 = fabs(robot_state[3] - magic_j1);
         double delta_right_j2 = fabs(robot_state[4] - magic_j2);
         double delta_right_j3 = fabs(robot_state[5] - magic_j3);
@@ -223,7 +222,7 @@ int MagicArmHeuristic::GetGoalHeuristic(int state_id)
                 robot_state[0], robot_state[0], robot_state[2], robot_state[3], robot_state[4],
                 robot_state[5], robot_state[6], robot_state[7], robot_state[8], robot_state[9]);
         //SMPL_ERROR("j4 delta: %f", m_cost_per_cell*delta_right_j4);
-        heuristic = 10*m_cost_per_cell*(delta_right_j1 + delta_right_j4);
+        heuristic = 10*m_cost_per_cell*(delta_right_j1 + delta_right_j2 + delta_right_j3 + delta_right_j4);
     }
     else{
     heuristic = getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
