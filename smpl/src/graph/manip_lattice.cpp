@@ -47,6 +47,7 @@
 #include <smpl/debug/marker_utils.h>
 #include <smpl/spatial.h>
 #include "../profiling.h"
+#include <smpl/utils.h>
 
 auto std::hash<smpl::ManipLatticeState>::operator()(
     const argument_type& s) const -> result_type
@@ -586,13 +587,23 @@ auto ManipLattice::computePlanningFrameFK(const RobotState& state) const
     return m_fk_iface->computeFK(state);
 }
 
+// This cost function makes the planner minimize the number of actions (all
+// actions considered equivalent).
 int ManipLattice::cost(
     ManipLatticeState* HashEntry1,
     ManipLatticeState* HashEntry2,
     bool bState2IsGoal) const
 {
+    auto& start_state = HashEntry1->state;
+    auto& end_state = HashEntry2->state;
     auto DefaultCostMultiplier = 1000;
-    return DefaultCostMultiplier;
+
+    std::vector<double> W( start_state.size(), 1 );
+    W[0]*= 2;
+    W[1]*= 2;
+    W[2]*= 1;
+    int cost = DefaultCostMultiplier*euclideanDistance( start_state, end_state, W );
+    return cost;//DefaultCostMultiplier;
 }
 
 bool ManipLattice::checkAction(const RobotState& state, const Action& action)

@@ -16,6 +16,7 @@
 #include <smpl/debug/marker_utils.h>
 #include <smpl/spatial.h>
 #include "../profiling.h"
+#include <smpl/utils.h>
 
 namespace smpl {
 
@@ -127,7 +128,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     SMPL_DEBUG_STREAM_NAMED(G_EXPANSIONS_LOG, "  angles: " << parent_entry->state);
 
     auto* vis_name = "expansion";
-    float c = 255.0;
+    float c = 0.6;
     visual::Color color{0, 0, 0, c};
     switch(rep_id){
         case 0:
@@ -142,7 +143,6 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         default:
             break;
     }
-    SMPL_ERROR("Rep_id : %d, Color: %f, %f, %f", rep_id, color.r, color.g, color.b);
     SV_SHOW_DEBUG_NAMED(vis_name, getStateVisualization(parent_entry->state, vis_name, color));
 
     int goal_succ_count = 0;
@@ -204,13 +204,22 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     }
 }
 
+// This cost function makes the planner minimize the number of actions (all
+// actions considered equivalent).
 int ManipLatticeMultiRep::cost(
     ManipLatticeState* HashEntry1,
     ManipLatticeState* HashEntry2,
     bool bState2IsGoal) const
 {
+    auto& start_state = HashEntry1->state;
+    auto& end_state = HashEntry2->state;
     auto DefaultCostMultiplier = 1000;
-    return DefaultCostMultiplier;
+    std::vector<double> W( start_state.size(), 1 );
+    W[0]*= 2;
+    W[1]*= 2;
+    W[2]*= 1;
+    int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
+    return cost;//DefaultCostMultiplier;
 }
 
 bool ManipLatticeMultiRep::checkAction(const RobotState& state, const Action& action)
