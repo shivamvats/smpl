@@ -100,8 +100,7 @@ int BaseRotEuclideanHeuristic::GetGoalHeuristic(int state_id)
 
     if (m_extract_ext) {
         RobotState robot_state = m_extract_ext->extractState(state_id);
-        double new_orientation = normalize_angle(robot_state[2] + m_rot_angle);
-        robot_state[2] = new_orientation;
+        robot_state[2] = m_rot_angle;
 
         Affine3 p;
         m_pose_ext->projectToPose(robot_state, p);

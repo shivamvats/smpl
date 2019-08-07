@@ -45,6 +45,7 @@ private:
 
     PoseProjectionExtension* m_pose_ext = nullptr;
     PointProjectionExtension* m_point_ext = nullptr;
+    ExtractRobotStateExtension* m_extract_ext = nullptr;
 
     double m_x_coeff = 1.0;
     double m_y_coeff = 1.0;

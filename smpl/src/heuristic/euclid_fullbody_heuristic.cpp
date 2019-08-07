@@ -45,6 +45,11 @@ bool EuclidFullbodyHeuristic::init(RobotPlanningSpace* space)
     if (!m_pose_ext && !m_point_ext) {
         SMPL_WARN_NAMED(LOG, "EuclidFullbodyHeuristic recommends PointProjectionExtension or PoseProjectionExtension");
     }
+    m_extract_ext = space->getExtension<ExtractRobotStateExtension>();
+    if (m_extract_ext) {
+        SMPL_INFO_NAMED(LOG, "Got Extract State Extension!");
+    } else
+        return false;
 
     return true;
 }
@@ -129,12 +134,7 @@ void EuclidFullbodyHeuristic::setWeightRot(double wr)
 
 double EuclidFullbodyHeuristic::getMetricGoalDistance(double x, double y, double z)
 {
-    auto& goal_pose = planningSpace()->goal().pose;
-    return EuclideanDistance(
-            x, y, z,
-            goal_pose.translation()[0],
-            goal_pose.translation()[1],
-            goal_pose.translation()[2]);
+    return 0.0;
 }
 
 double EuclidFullbodyHeuristic::getMetricStartDistance(double x, double y, double z)
@@ -165,6 +165,12 @@ int EuclidFullbodyHeuristic::GetGoalHeuristic(int state_id)
         }
 
         auto& goal_pose = planningSpace()->goal().pose;
+
+        //Current robot state
+        RobotState robot_state = m_extract_ext->extractState(state_id);
+
+        //Need to to 2D BFS for base!!
+
 
         // IK
         /*
