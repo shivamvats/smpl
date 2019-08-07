@@ -57,7 +57,8 @@ endforeach()
 find_package(Boost REQUIRED COMPONENTS filesystem program_options system)
 find_package(Eigen3 REQUIRED)
 list(APPEND CMAKE_PREFIX_PATH "~/lolocal")
-find_package(sbpl REQUIRED)
+find_package(sbpl REQUIRED congfig)
+MESSAGE(WARNING ${SBPL_INCLUDE_DIRS})
 #find_package(smpl_urdf_robot_model)
 #find_package(sbpl_kdl_robot_model)
 
@@ -165,6 +166,7 @@ set(SMPL_LIBRARY_SOURCES
     src/heuristic/multi_frame_bfs_heuristic.cpp
     src/heuristic/sparse_egraph_dijkstra_heuristic.cpp
     src/heuristic/zero_heuristic.cpp
+    src/heuristic/base_rot_euclidean_heuristic.cpp
     src/search/fmhastar.cpp
     src/search/meta_mhastar_dts.cpp
     src/search/mhastarpp.cpp
