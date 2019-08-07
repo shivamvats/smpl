@@ -1,5 +1,5 @@
-#ifndef SMPL_BASE_ROT_HEURISTIC_H
-#define SMPL_BASE_ROT_HEURISTIC_H
+#ifndef SMPL_BASE_ROT_EUCLIDEAN_HEURISTIC_H
+#define SMPL_BASE_ROT_EUCLIDEAN_HEURISTIC_H
 
 // project includes
 #include <smpl/heuristic/robot_heuristic.h>
@@ -7,11 +7,17 @@
 
 namespace smpl {
 
-class BaseRotHeuristic : public RobotHeuristic
+// Rotate by ``theta`` and then compute Euclidean.
+class BaseRotEuclideanHeuristic : public RobotHeuristic
 {
 public:
 
     bool init(RobotPlanningSpace* space, double angle);
+
+    void setWeightX(double wx);
+    void setWeightY(double wy);
+    void setWeightZ(double wz);
+    void setWeightRot(double wr);
 
     /// \name Required Public Functions from RobotHeuristic
     ///@{
@@ -33,6 +39,11 @@ public:
 
 private:
 
+    double m_x_coeff = 1.0;
+    double m_y_coeff = 1.0;
+    double m_z_coeff = 1.0;
+    double m_rot_coeff = 1.0;
+
     static constexpr double FIXED_POINT_RATIO = 1000.0;
     double m_rot_angle;
 
@@ -41,8 +52,6 @@ private:
     ExtractRobotStateExtension* m_extract_ext = nullptr;
 
     double computeDistance(const Affine3& a, const Affine3& b) const;
-
-    double computeDistance(const Vector3& u, const Vector3& v) const;
 };
 
 } // namespace smpl
