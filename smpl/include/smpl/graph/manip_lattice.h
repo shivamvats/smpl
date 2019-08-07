@@ -135,6 +135,7 @@ public:
     /// \name Required Public Functions from PoseProjectionExtension
     ///@{
     bool projectToPose(int state_id, Affine3& pos) override;
+    bool projectToPose(RobotState state, Affine3& pos) override;
     ///@}
 
     /// \name Required Public Functions from RobotPlanningSpace

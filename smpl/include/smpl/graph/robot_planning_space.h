@@ -171,6 +171,7 @@ public:
     }
 
     virtual bool projectToPose(int state_id, Affine3& pose) = 0;
+    virtual bool projectToPose(RobotState state, Affine3& pose){}
 };
 
 class ExtractRobotStateExtension : public virtual Extension

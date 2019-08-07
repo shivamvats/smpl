@@ -455,6 +455,12 @@ bool ManipLattice::projectToPose(int state_id, Affine3& pose)
     return true;
 }
 
+bool ManipLattice::projectToPose(RobotState state, Affine3& pose)
+{
+    pose = computePlanningFrameFK(state);
+    return true;
+}
+
 void ManipLattice::GetPreds(
     int state_id,
     std::vector<int>* preds,
