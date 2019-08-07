@@ -423,4 +423,8 @@ int BfsHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const
     }
 }
 
+int BfsHeuristic::getBfsCostToGoal( int x, int y, int z ) const{
+    return getBfsCostToGoal( *m_bfs, x, y, z );
+}
+
 } // namespace smpl

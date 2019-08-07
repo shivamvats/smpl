@@ -81,11 +81,12 @@ public:
 
     /// \name Required Public Functions from Heuristic
     ///@{
-    int GetGoalHeuristic(int state_id) override;
+    virtual int GetGoalHeuristic(int state_id) override;
     int GetStartHeuristic(int state_id) override;
     int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
 
+    int getBfsCostToGoal(int x, int y, int z) const;
 private:
 
     const OccupancyGrid* m_grid = nullptr;
@@ -103,7 +104,6 @@ private:
         CellCoord(int x, int y, int z) : x(x), y(y), z(z) { }
     };
     std::vector<CellCoord> m_goal_cells;
-
     int getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const;
 };
 
