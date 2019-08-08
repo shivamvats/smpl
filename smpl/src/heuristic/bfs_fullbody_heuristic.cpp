@@ -226,6 +226,10 @@ Extension* BfsFullbodyHeuristic::getExtension(size_t class_code)
     return nullptr;
 }
 
+// 1. Find a reasonable base position near the goal
+// 2. Compute 2D distance between robot state's base and target base.
+// 3. Add 3D BFS distance between end-effector and goal xyz.
+// 4. (Optional) Add Euclidean distance for rpy.
 int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
 {
     if (m_pp == NULL) {
