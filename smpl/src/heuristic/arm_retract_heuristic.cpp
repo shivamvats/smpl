@@ -56,6 +56,7 @@ double EuclideanDistance(
 
 bool ArmRetractHeuristic::init(RobotPlanningSpace* space)
 {
+    std::cout<<"ARM heuristic init\n";
     if (!RobotHeuristic::init(space)) {
         return false;
     }
@@ -135,9 +136,6 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
 
         auto extract_ext = planningSpace()->getExtension<ExtractRobotStateExtension>();
         RobotState target_state = extract_ext->extractState(state_id);
-        // Retract arm.
-        //for(int i=3;i<target_state.size();i++)
-        //    target_state[i] = 0;
         //Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
 
         //const double dist = computeDistance(p, target_pose);
@@ -147,16 +145,25 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         dist = std::sqrt(dist);
 
         int h = FIXED_POINT_RATIO * dist;
-        h = h*10;
+        h = h;
+
+        // Euclidean distance of base to goal.
+        auto goal_pose = planningSpace()->goal().pose;
+        auto goal_xyz = goal_pose.translation();
+        auto dist_to_goal =
+                std::sqrt( (target_state[0] - goal_xyz.x())*(target_state[0] - goal_xyz.x()) +
+                (target_state[1] - goal_xyz.y())*(target_state[1] - goal_xyz.y()) );
+        dist_to_goal *= FIXED_POINT_RATIO;
 
         //double Y, P, R;
         //angles::get_euler_zyx(p.rotation(), Y, P, R);
         //SMPL_DEBUG_NAMED(LOG, "h(%0.3f, %0.3f, %0.3f, %0.3f, %0.3f, %0.3f) = %d", p.translation()[0], p.translation()[1], p.translation()[2], Y, P, R, h);
         //angles::get_euler_zyx(target_pose.rotation(), Y, P, R);
         //SMPL_DEBUG_NAMED(LOG, "Target pose: Y, P, R: %0.3f, %0.3f, %0.3f", Y, P, R);
-        SMPL_DEBUG_NAMED(LOG, "Arm Retract Heuristic: h(%f, %f, %f, %f, %f) = %d",
+        SMPL_ERROR("Arm Retract Heuristic: h(%f, %f, %f, %f, %f) = %d + %f",
                 target_state[3], target_state[4], target_state[5], target_state[6],
-                target_state[7], h);
+                target_state[7], h, dist_to_goal);
+        h += dist_to_goal;
 
         return h;
     } else if (m_point_ext) {
@@ -168,9 +175,6 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         auto manip_space = dynamic_cast<ManipLattice*>(planningSpace());
         auto extract_ext = planningSpace()->getExtension<ExtractRobotStateExtension>();
         auto target_state = extract_ext->extractState(state_id);
-        // Retract arm.
-        //for(int i=3;i<target_state.size();i++)
-        //    target_state[i] = 0;
         //Affine3 target_pose = manip_space->computePlanningFrameFK(target_state);
         //Vector3 gp(target_pose.translation());
 
