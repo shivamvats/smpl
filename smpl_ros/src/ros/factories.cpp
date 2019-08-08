@@ -64,7 +64,7 @@ bool GetManipLatticeActionSpaceParams(
     }
     if (!pp.getParam("mprim_filenames", params.mprim_filenames)) {
         SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'mprim_filenames' not found in planning params");
-        return false;
+        //return false;
     }
 
     pp.param("use_multiple_ik_solutions", params.use_multiple_ik_solutions, false);
