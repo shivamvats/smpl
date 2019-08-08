@@ -127,7 +127,7 @@ set(SMPL_LIBRARY_SOURCES
     src/planning_params.cpp
     src/post_processing.cpp
     src/robot_model.cpp
-    src/bfs3d/bfs3d.cpp
+    src/bfs/bfs3d.cpp
     src/debug/colors.cpp
     src/debug/marker_utils.cpp
     src/debug/visualize.cpp

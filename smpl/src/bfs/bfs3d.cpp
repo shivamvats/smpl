@@ -30,7 +30,7 @@
 /// \author Harsh Pandey
 /// \author Andrew Dornbush
 
-#include <smpl/bfs3d/bfs3d.h>
+#include <smpl/bfs/bfs3d.h>
 
 #include <smpl/console/console.h>
 

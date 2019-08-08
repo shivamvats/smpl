@@ -37,7 +37,7 @@
 
 // project includes
 #include <smpl/occupancy_grid.h>
-#include <smpl/bfs3d/bfs3d.h>
+#include <smpl/bfs/bfs3d.h>
 #include <smpl/debug/marker.h>
 #include <smpl/heuristic/robot_heuristic.h>
 

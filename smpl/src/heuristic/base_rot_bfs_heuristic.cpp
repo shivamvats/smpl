@@ -32,7 +32,7 @@
 #include <smpl/heuristic/base_rot_bfs_heuristic.h>
 
 // project includes
-#include <smpl/bfs3d/bfs3d.h>
+#include <smpl/bfs/bfs3d.h>
 #include <smpl/console/console.h>
 #include <smpl/debug/marker_utils.h>
 #include <smpl/debug/colors.h>
