@@ -67,13 +67,6 @@ private:
     ExtractRobotStateExtension* m_extract_ext = nullptr;
 
     double m_rot_angle;
-
-    struct CellCoord
-    {
-        int x, y, z;
-        CellCoord() = default;
-        CellCoord(int x, int y, int z) : x(x), y(y), z(z) { }
-    };
 };
 
 } // namespace smpl
