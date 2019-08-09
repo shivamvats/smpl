@@ -25,15 +25,6 @@ public:
 
     void setWall(int x, int y);
 
-    // \brief Clear cells around a given cell until freespace is encountered.
-    //
-    // Clear cells around a given cell, in bfs-fashion, until a path has been
-    // made to an existing free cell.
-    //
-    // \return false if out of bounds or if there are no free cells, true
-    //         otherwise
-    bool escapeCell(int x, int y);
-
     void run(int x, int y);
 
     /// \brief Run the BFS starting from a variable number of cells
@@ -52,7 +43,7 @@ public:
     ///
     bool isUndiscovered(int x, int y) const;
 
-    int getNearestFreeNodeDist(int x, int y);
+    //int getNearestFreeNodeDist(int x, int y);
     bool isWall(int x, int y) const;
 
 
@@ -76,6 +67,11 @@ public:
     bool isWall(int node) const;
     int isUndiscovered(int node) const;
     int neighbor(int node, int neighbor) const;
+    int countWalls() const;
+    int countUndiscovered() const;
+    int countDiscovered() const;
+    void printGrid();
+
 };
 
 inline bool BFS_2D::inBounds(int x, int y) const
