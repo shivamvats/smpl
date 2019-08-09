@@ -128,6 +128,7 @@ set(SMPL_LIBRARY_SOURCES
     src/post_processing.cpp
     src/robot_model.cpp
     src/bfs/bfs3d.cpp
+    src/bfs/bfs2d.cpp
     src/debug/colors.cpp
     src/debug/marker_utils.cpp
     src/debug/visualize.cpp
@@ -182,6 +183,7 @@ set(SMPL_LIBRARY_SOURCES
     src/steer/steer.cpp
     src/unicycle/dubins.cpp
     src/unicycle/unicycle.cpp)
+
 
 set(CMAKE_DEBUG_POSTFIX "_d")
 
@@ -278,6 +280,14 @@ if(SMPL_BUILD_STATIC)
     link_common_libraries(smpl-static)
     add_common_compile_definitions(smpl-static)
 endif()
+
+
+###############
+# Test
+###############
+add_executable(test_bfs test/bfs2d.cpp)
+target_include_directories(test_bfs PRIVATE include)
+target_link_libraries(test_bfs smpl-shared)
 
 ################
 # Installation #
