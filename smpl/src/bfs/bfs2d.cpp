@@ -4,30 +4,25 @@
 
 namespace smpl {
 
-BFS_2D::BFS_2D(int width, int height, int length) :
-    m_search_thread(),
+BFS_2D::BFS_2D(int length, int width) :
     m_dim_x(),
     m_dim_y(),
-    m_dim_z(),
     m_distance_grid(nullptr),
     m_queue(nullptr),
     m_queue_head(),
     m_queue_tail(),
-    m_running(false),
     m_neighbor_offsets(),
     m_closed(),
     m_distances()
 {
-    if (width <= 0 || height <= 0 || length <= 0) {
+    if (width <= 0 || length <= 0) {
         return;
     }
 
-    m_dim_x = width + 2;
-    m_dim_y = height + 2;
-    m_dim_z = length + 2;
+    m_dim_x = length + 2;
+    m_dim_y = width + 2;
 
     m_dim_xy = m_dim_x * m_dim_y;
-    m_dim_xyz = m_dim_xy * m_dim_z;
 
     m_neighbor_offsets[0] = -m_dim_x;
     m_neighbor_offsets[1] = 1;
@@ -37,35 +32,15 @@ BFS_2D::BFS_2D(int width, int height, int length) :
     m_neighbor_offsets[5] = -m_dim_x+1;
     m_neighbor_offsets[6] = m_dim_x+1;
     m_neighbor_offsets[7] = m_dim_x-1;
-    m_neighbor_offsets[8] = m_dim_xy;
-    m_neighbor_offsets[9] = -m_dim_x+m_dim_xy;
-    m_neighbor_offsets[10] = 1+m_dim_xy;
-    m_neighbor_offsets[11] = m_dim_x+m_dim_xy;
-    m_neighbor_offsets[12] = -1+m_dim_xy;
-    m_neighbor_offsets[13] = -m_dim_x-1+m_dim_xy;
-    m_neighbor_offsets[14] = -m_dim_x+1+m_dim_xy;
-    m_neighbor_offsets[15] = m_dim_x+1+m_dim_xy;
-    m_neighbor_offsets[16] = m_dim_x-1+m_dim_xy;
-    m_neighbor_offsets[17] = -m_dim_xy;
-    m_neighbor_offsets[18] = -m_dim_x-m_dim_xy;
-    m_neighbor_offsets[19] = 1-m_dim_xy;
-    m_neighbor_offsets[20] = m_dim_x-m_dim_xy;
-    m_neighbor_offsets[21] = -1-m_dim_xy;
-    m_neighbor_offsets[22] = -m_dim_x-1-m_dim_xy;
-    m_neighbor_offsets[23] = -m_dim_x+1-m_dim_xy;
-    m_neighbor_offsets[24] = m_dim_x+1-m_dim_xy;
-    m_neighbor_offsets[25] = m_dim_x-1-m_dim_xy;
 
-    m_distance_grid = new int[m_dim_xyz];
-    m_queue = new int[width * height * length];
+    m_distance_grid = new int[m_dim_xy];
+    m_queue = new int[width*length];
 
-    for (int node = 0; node < m_dim_xyz; node++) {
+    for (int node = 0; node < m_dim_xy; node++) {
         int x = node % m_dim_x;
-        int y = node / m_dim_x % m_dim_y;
-        int z = node / m_dim_xy;
+        int y = node / m_dim_y;
         if (x == 0 || x == m_dim_x - 1 ||
-            y == 0 || y == m_dim_y - 1 ||
-            z == 0 || z == m_dim_z - 1)
+            y == 0 || y == m_dim_y - 1)
         {
             m_distance_grid[node] = WALL;
         }
@@ -73,16 +48,10 @@ BFS_2D::BFS_2D(int width, int height, int length) :
             m_distance_grid[node] = UNDISCOVERED;
         }
     }
-
-    m_running = false;
 }
 
 BFS_2D::~BFS_2D()
 {
-    if (m_search_thread.joinable()) {
-        m_search_thread.join();
-    }
-
     if (m_distance_grid) {
         delete[] m_distance_grid;
     }
@@ -91,51 +60,46 @@ BFS_2D::~BFS_2D()
     }
 }
 
-void BFS_2D::getDimensions(int* width, int* height, int* length)
+void BFS_2D::getDimensions(int& length, int& width)
 {
-    *width = m_dim_x - 2;
-    *height = m_dim_y - 2;
-    *length = m_dim_z - 2;
+    length = m_dim_x - 2;
+    width = m_dim_y - 2;
 }
 
-void BFS_2D::setWall(int x, int y, int z)
+void BFS_2D::setWall(int x, int y)
 {
-    if (m_running) {
-        //error "Cannot modify grid while search is running"
-        return;
-    }
-
-    int node = getNode(x, y, z);
+    int node = getNode(x, y);
     m_distance_grid[node] = WALL;
 }
 
-bool BFS_2D::isWall(int x, int y, int z) const
+bool BFS_2D::isWall(int x, int y) const
 {
-    int node = getNode(x, y, z);
+    int node = getNode(x, y);
     return m_distance_grid[node] == WALL;
 }
 
-bool BFS_2D::isUndiscovered(int x, int y, int z) const
+bool BFS_2D::isUndiscovered(int x, int y) const
 {
-    int node = getNode(x, y, z);
-    while (m_running && m_distance_grid[node] < 0);
+    int node = getNode(x, y);
     return m_distance_grid[node] == UNDISCOVERED;
 }
 
-void BFS_2D::run(int x, int y, int z)
-{
-    if (m_running) {
-        return;
+#define EXPAND_NEIGHBOR(offset)                            \
+    if (m_distance_grid[currentNode + offset] < 0) {         \
+        m_queue[m_queue_tail++] = currentNode + offset;        \
+        m_distance_grid[currentNode + offset] = currentCost; \
     }
 
-    for (int i = 0; i < m_dim_xyz; i++) {
+void BFS_2D::run(int x, int y)
+{
+    for (int i = 0; i < m_dim_xy; i++) {
         if (m_distance_grid[i] != WALL) {
             m_distance_grid[i] = UNDISCOVERED;
         }
     }
 
     // get index of start coordinate
-    int origin = getNode(x, y, z);
+    int origin = getNode(x, y);
 
     // initialize the queue
     m_queue_head = 0;
@@ -145,192 +109,24 @@ void BFS_2D::run(int x, int y, int z)
     // initialize starting distance
     m_distance_grid[origin] = 0;
 
-    // fire off background thread to compute bfs
-    m_search_thread = std::thread([&]()
-    {
-        this->search(m_dim_x, m_dim_xy, m_distance_grid, m_queue, m_queue_head, m_queue_tail);
-    });
+    while (m_queue_head < m_queue_tail) {
+        int currentNode = m_queue[m_queue_head++];
+        int currentCost = m_distance_grid[currentNode] + 1;
 
-    m_running = true;
-}
-
-void BFS_2D::run_components(int gx, int gy, int gz)
-{
-    for (int i = 0; i < m_dim_xyz; i++) {
-        if (m_distance_grid[i] != WALL) {
-            m_distance_grid[i] = UNDISCOVERED;
-        }
-    }
-
-    // invert walls and free cells in an auxiliary bfs
-    int length, width, height;
-    getDimensions(&length, &width, &height);
-    BFS_2D wall_bfs(length, width, height);
-    for (int x = 0; x < length; ++x) {
-        for (int y = 0; y < width; ++y) {
-            for (int z = 0; z < height; ++z) {
-                if (!isWall(x, y, z)) {
-                    wall_bfs.setWall(x, y, z);
-                }
-            }
-        }
-    }
-
-    // initialize the distance grid of the wall bfs
-    for (int i = 0; i < m_dim_xyz; ++i) {
-        if (wall_bfs.m_distance_grid[i] != WALL) {
-            wall_bfs.m_distance_grid[i] = UNDISCOVERED;
-        }
-    }
-
-    // initialize the distance grid queue
-    wall_bfs.m_queue_head = 0;
-    wall_bfs.m_queue_tail = 1;
-
-    int volatile* curr_distance_grid = m_distance_grid;
-    int* curr_queue = m_queue;
-    int* curr_queue_head = &m_queue_head;
-    int* curr_queue_tail = &m_queue_tail;
-
-    int volatile* next_distance_grid = wall_bfs.m_distance_grid;
-    int* next_queue = wall_bfs.m_queue;
-    int* next_queue_head = &wall_bfs.m_queue_head;
-    int* next_queue_tail = &wall_bfs.m_queue_tail;
-
-    int gnode = getNode(gx, gy, gz);
-
-    // seed the initial queue
-    *curr_queue_head = 0;
-    *curr_queue_tail = 1;
-    curr_queue[0] = gnode;
-    curr_distance_grid[gnode] = 0;
-
-    *next_queue_head = 0;
-    *next_queue_tail = 0;
-
-    int num_iterations = 0;
-
-    while (*curr_queue_head < *curr_queue_tail) {
-        // next_queue and values of cells in next_queue via next_distance_grid
-        // are initialized by this search call
-        search(
-                m_dim_x,
-                m_dim_xy,
-                curr_distance_grid,
-                curr_queue,
-                *curr_queue_head,
-                *curr_queue_tail,
-                next_distance_grid,
-                next_queue,
-                *next_queue_head,
-                *next_queue_tail);
-
-        std::swap(curr_distance_grid, next_distance_grid);
-        std::swap(curr_queue, next_queue);
-        std::swap(curr_queue_head, next_queue_head);
-        std::swap(curr_queue_tail, next_queue_tail);
-        ++num_iterations;
-    }
-
-    SMPL_INFO("Computed entire distance field in %d iterations", num_iterations);
-
-    // combine distance fields
-    for (int i = 0; i < m_dim_xyz; ++i) {
-        if (wall_bfs.m_distance_grid[i] != WALL) {
-            m_distance_grid[i] = wall_bfs.m_distance_grid[i];
-        }
+        for( int i=0; i<8; i++ )
+            EXPAND_NEIGHBOR(m_neighbor_offsets[i]);
     }
 }
 
-bool BFS_2D::escapeCell(int x, int y, int z)
+#undef EXPAND_NEIGHBOR
+
+int BFS_2D::getDistance(int x, int y) const
 {
-    if (!inBounds(x, y, z)) {
-        SMPL_ERROR("BFS goal is out of bounds");
-        return false;
-    }
-
-    // clear cells until the goal connects to a free cell
-    int escape_count = 0;
-    std::queue<int> q;
-    q.push(getNode(x, y, z));
-    bool escaped = false;
-
-    int length, width, height;
-    getDimensions(&length, &width, &height);
-    std::vector<bool> visited((length + 2) * (width + 2) * (height + 2), false);
-
-    while (!q.empty()) {
-        int n = q.front();
-        q.pop();
-
-        visited[n] = true;
-
-        // goal condition
-        if (!isWall(n)) {
-            break;
-        }
-
-        unsetWall(n);
-
-        for (int i = 0; i < 26; ++i) {
-            int neighbor = this->neighbor(n, i);
-            if (!visited[neighbor]) {
-                q.push(neighbor);
-            }
-        }
-
-        ++escape_count;
-    }
-
-    SMPL_INFO("Escaped goal cell in %d expansions", escape_count);
-
-    // TODO: return false if no free cells (escape_count == width * height * depth?)
-    return true;
-}
-
-template <typename Visitor>
-void BFS_2D::visit_free_cells(int node, const Visitor& visitor)
-{
-    if (isWall(node)) {
-        return;
-    }
-
-    int nx, ny, nz;
-    getCoord(node, nx, ny, nz);
-
-    std::vector<bool> visited(m_dim_xyz, false);
-    std::queue<int> nodes;
-    nodes.push(node);
-
-    while (!nodes.empty()) {
-        int n = nodes.front();
-        nodes.pop();
-
-        visitor(n);
-
-        for (int i = 0; i < 26; ++i) {
-            int nn = neighbor(n, i);
-            if (!visited[nn] && !isWall(nn)) {
-                nodes.push(nn);
-                // mark visited here to avoid adding nodes to the queue multiple
-                // times
-                visited[nn] = true;
-                if (nodes.size() >= m_dim_xyz) {
-                    SMPL_ERROR("Wow queue is too damn big");
-                    return;
-                }
-            }
-        }
-    }
-}
-
-int BFS_2D::getDistance(int x, int y, int z) const
-{
-    int node = getNode(x, y, z);
-    while (m_running && m_distance_grid[node] < 0);
+    int node = getNode(x, y);
     return m_distance_grid[node];
 }
 
+/*
 int BFS_2D::getNearestFreeNodeDist(int x, int y, int z)
 {
     // initialize closed set and distances
@@ -418,11 +214,12 @@ if (inBounds(xn, yn, zn)) {\
     fprintf(stderr, "Found no free neighbor\n");
     return -1;
 }
+*/
 
 int BFS_2D::countWalls() const
 {
     int count = 0;
-    for (int i = 0; i < m_dim_xyz; ++i) {
+    for (int i = 0; i < m_dim_xy; ++i) {
         if (m_distance_grid[i] == WALL) {
             ++count;
         }
@@ -433,7 +230,7 @@ int BFS_2D::countWalls() const
 int BFS_2D::countUndiscovered() const
 {
     int count = 0;
-    for (int i = 0; i < m_dim_xyz; ++i) {
+    for (int i = 0; i < m_dim_xy; ++i) {
         if (m_distance_grid[i] == UNDISCOVERED) {
             ++count;
         }
@@ -444,7 +241,7 @@ int BFS_2D::countUndiscovered() const
 int BFS_2D::countDiscovered() const
 {
     int count = 0;
-    for (int i = 0; i < m_dim_xyz; ++i) {
+    for (int i = 0; i < m_dim_xy; ++i) {
         if (m_distance_grid[i] != WALL && m_distance_grid[i] >= 0) {
             ++count;
         }
@@ -452,116 +249,18 @@ int BFS_2D::countDiscovered() const
     return count;
 }
 
-#define EXPAND_NEIGHBOR(offset)                            \
-    if (distance_grid[currentNode + offset] < 0) {         \
-        queue[queue_tail++] = currentNode + offset;        \
-        distance_grid[currentNode + offset] = currentCost; \
+void BFS_2D::printGrid(){
+    for(int i=0; i<m_dim_xy; i++){
+        if( i % m_dim_x == 0 )
+            std::cout<<"\n";
+        if(m_distance_grid[i] == UNDISCOVERED)
+            std::cout<<"o"<<"  ";
+        else if(m_distance_grid[i] == WALL)
+            std::cout<<"x"<<"  ";
+        else
+            throw "What kind of a cell this is?";
     }
-
-void BFS_2D::search(
-    int width,
-    int planeSize,
-    int volatile* distance_grid,
-    int* queue,
-    int& queue_head,
-    int& queue_tail)
-{
-    while (queue_head < queue_tail) {
-        int currentNode = queue[queue_head++];
-        int currentCost = distance_grid[currentNode] + 1;
-
-        EXPAND_NEIGHBOR(-width);
-        EXPAND_NEIGHBOR(1);
-        EXPAND_NEIGHBOR(width);
-        EXPAND_NEIGHBOR(-1);
-        EXPAND_NEIGHBOR(-width-1);
-        EXPAND_NEIGHBOR(-width+1);
-        EXPAND_NEIGHBOR(width+1);
-        EXPAND_NEIGHBOR(width-1);
-        EXPAND_NEIGHBOR(planeSize);
-        EXPAND_NEIGHBOR(-width+planeSize);
-        EXPAND_NEIGHBOR(1+planeSize);
-        EXPAND_NEIGHBOR(width+planeSize);
-        EXPAND_NEIGHBOR(-1+planeSize);
-        EXPAND_NEIGHBOR(-width-1+planeSize);
-        EXPAND_NEIGHBOR(-width+1+planeSize);
-        EXPAND_NEIGHBOR(width+1+planeSize);
-        EXPAND_NEIGHBOR(width-1+planeSize);
-        EXPAND_NEIGHBOR(-planeSize);
-        EXPAND_NEIGHBOR(-width-planeSize);
-        EXPAND_NEIGHBOR(1-planeSize);
-        EXPAND_NEIGHBOR(width-planeSize);
-        EXPAND_NEIGHBOR(-1-planeSize);
-        EXPAND_NEIGHBOR(-width-1-planeSize);
-        EXPAND_NEIGHBOR(-width+1-planeSize);
-        EXPAND_NEIGHBOR(width+1-planeSize);
-        EXPAND_NEIGHBOR(width-1-planeSize);
-    }
-    m_running = false;
+    std::cout<<"\n";
 }
-
-#undef EXPAND_NEIGHBOR
-
-#define EXPAND_NEIGHBOR_FRONTIER(offset) \
-{\
-    if (distance_grid[currentNode + offset] < 0) {\
-        queue[queue_tail++] = currentNode + offset;\
-        distance_grid[currentNode + offset] = currentCost;\
-    }\
-    else if (distance_grid[currentNode + offset] == WALL) {\
-        if (frontier_grid[currentNode + offset] < 0) {\
-            frontier_queue[frontier_queue_tail++] = currentNode + offset;\
-            frontier_grid[currentNode + offset] = currentCost;\
-        }\
-    }\
-}
-
-void BFS_2D::search(
-    int width,
-    int planeSize,
-    int volatile* distance_grid,
-    int* queue,
-    int& queue_head,
-    int& queue_tail,
-    int volatile* frontier_grid,
-    int* frontier_queue,
-    int& frontier_queue_head,
-    int& frontier_queue_tail)
-{
-    while (queue_head < queue_tail) {
-        int currentNode = queue[queue_head++];
-        int currentCost = distance_grid[currentNode] + 1;
-
-        EXPAND_NEIGHBOR_FRONTIER(-width);
-        EXPAND_NEIGHBOR_FRONTIER(1);
-        EXPAND_NEIGHBOR_FRONTIER(width);
-        EXPAND_NEIGHBOR_FRONTIER(-1);
-        EXPAND_NEIGHBOR_FRONTIER(-width-1);
-        EXPAND_NEIGHBOR_FRONTIER(-width+1);
-        EXPAND_NEIGHBOR_FRONTIER(width+1);
-        EXPAND_NEIGHBOR_FRONTIER(width-1);
-        EXPAND_NEIGHBOR_FRONTIER(planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width-1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width+1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width+1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width-1+planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(1-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-1-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width-1-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(-width+1-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width+1-planeSize);
-        EXPAND_NEIGHBOR_FRONTIER(width-1-planeSize);
-    }
-    m_running = false;
-}
-
-#undef EXPAND_NEIGHBOR_FRONTIER
 
 } // namespace smpl
