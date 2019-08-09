@@ -12,7 +12,6 @@ int main(){
     printMessage("Testing SMPL BFS2D");
     smpl::BFS_2D bfs( 10, 10 );
     printMessage("BFS2D successfully constructed");
-    bfs.printGrid();
 
     std::cout<<"\n";
     printMessage("Adding obstacles");
@@ -23,6 +22,7 @@ int main(){
     bfs.printGrid();
 
     bfs.run(1, 1);
+    bfs.printGrid();
     int x, y;
     x = 1, y = 1;
     int dist = bfs.getDistance(x, y);

@@ -258,7 +258,7 @@ void BFS_2D::printGrid(){
         else if(m_distance_grid[i] == WALL)
             std::cout<<"x"<<"  ";
         else
-            throw "What kind of a cell this is?";
+            std::cout<<m_distance_grid[i]<<"  ";
     }
     std::cout<<"\n";
 }
