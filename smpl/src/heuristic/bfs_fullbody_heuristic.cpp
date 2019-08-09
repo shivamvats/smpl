@@ -30,6 +30,8 @@
 /// \author Andrew Dornbush
 
 #include <cmath>
+#include <limits>
+#include <algorithm>
 #include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/angles.h>
 
@@ -102,14 +104,18 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
         SMPL_DEBUG_NAMED(LOG, "Setting the BFS heuristic goal (%d, %d, %d)", gx, gy, gz);
 
-        if (!m_bfs->inBounds(gx, gy, gz)) {
+        if (!m_bfs_3d->inBounds(gx, gy, gz)) {
+            SMPL_ERROR_NAMED(LOG, "Heuristic goal is out of BFS bounds");
+            break;
+        }
+        if (!m_bfs_3d->inBounds(gx, gy, gz)) {
             SMPL_ERROR_NAMED(LOG, "Heuristic goal is out of BFS bounds");
             break;
         }
 
         m_goal_cells.emplace_back(gx, gy, gz);
 
-        m_bfs->run(gx, gy, gz);
+        m_bfs_3d->run(gx, gy, gz);
 
         auto goal_pose = goal.pose;
         double goal_x = goal_pose.translation()[0];
@@ -160,7 +166,7 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
             SMPL_DEBUG_NAMED(LOG, "Setting the BFS heuristic goal (%d, %d, %d)", gx, gy, gz);
 
-            if (!m_bfs->inBounds(gx, gy, gz)) {
+            if (!m_bfs_3d->inBounds(gx, gy, gz)) {
                 SMPL_ERROR_NAMED(LOG, "Heuristic goal is out of BFS bounds");
                 continue;
             }
@@ -171,7 +177,7 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
             m_goal_cells.emplace_back(gx, gy, gz);
         }
-        m_bfs->run(begin(cell_coords), end(cell_coords));
+        m_bfs_3d->run(begin(cell_coords), end(cell_coords));
         break;
     }
     case GoalType::USER_GOAL_CONSTRAINT_FN:
@@ -211,10 +217,10 @@ double BfsFullbodyHeuristic::getMetricGoalDistance(double x, double y, double z)
 {
     int gx, gy, gz;
     grid()->worldToGrid(x, y, z, gx, gy, gz);
-    if (!m_bfs->inBounds(gx, gy, gz)) {
+    if (!m_bfs_3d->inBounds(gx, gy, gz)) {
         return (double)BFS_3D::WALL * grid()->resolution();
     } else {
-        return (double)m_bfs->getDistance(gx, gy, gz) * grid()->resolution();
+        return (double)m_bfs_3d->getDistance(gx, gy, gz) * grid()->resolution();
     }
 }
 
@@ -267,8 +273,8 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         base_dist = 0;
     }
 
-    int heuristic = m_cost_per_cell*base_dist + getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
-    //SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z() ));
+    int heuristic = m_cost_per_cell*base_dist + getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
+    //SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z() ));
     SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
     //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
@@ -301,7 +307,7 @@ auto BfsFullbodyHeuristic::getWallsVisualization() const -> visual::Marker
     for (int x = 0; x < dimX; x++) {
     for (int y = 0; y < dimY; y++) {
     for (int z = 0; z < dimZ; z++) {
-        if (m_bfs->isWall(x, y, z)) {
+        if (m_bfs_3d->isWall(x, y, z)) {
             Vector3 p;
             grid()->gridToWorld(x, y, z, p.x(), p.y(), p.z());
             centers.push_back(p);
@@ -330,7 +336,7 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
 {
     bool all_invalid = true;
     for (auto& cell : m_goal_cells) {
-        if (!m_bfs->isWall(cell.x, cell.y, cell.z)) {
+        if (!m_bfs_3d->isWall(cell.x, cell.y, cell.z)) {
             all_invalid = false;
             break;
         }
@@ -372,7 +378,7 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
     std::queue<CostCell> cells;
     Grid3<bool> visited(grid()->numCellsX(), grid()->numCellsY(), grid()->numCellsZ(), false);
     for (auto& cell : m_goal_cells) {
-        if (!m_bfs->isWall(cell.x, cell.y, cell.z)) {
+        if (!m_bfs_3d->isWall(cell.x, cell.y, cell.z)) {
             visited(cell.x, cell.y, cell.z) = true;
             cells.push({ cell.x, cell.y, cell.z, 0 });
         }
@@ -414,7 +420,7 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
 
 //        visited(c.x, c.y, c.z) = true;
 
-        const int d = m_cost_per_cell * m_bfs->getDistance(c.x, c.y, c.z);
+        const int d = m_cost_per_cell * m_bfs_3d->getDistance(c.x, c.y, c.z);
 
         for (int dx = -1; dx <= 1; ++dx) {
         for (int dy = -1; dy <= 1; ++dy) {
@@ -428,7 +434,7 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
             int sz = c.z + dz;
 
             // check if neighbor is valid
-            if (!m_bfs->inBounds(sx, sy, sz) || m_bfs->isWall(sx, sy, sz)) {
+            if (!m_bfs_3d->inBounds(sx, sy, sz) || m_bfs_3d->isWall(sx, sy, sz)) {
                 continue;
             }
 
@@ -439,7 +445,7 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
 
             visited(sx, sy, sz) = true;
 
-            int dd = m_cost_per_cell * m_bfs->getDistance(sx, sy, sz);
+            int dd = m_cost_per_cell * m_bfs_3d->getDistance(sx, sy, sz);
             cells.push({sx, sy, sz, dd});
         }
         }
@@ -460,23 +466,55 @@ void BfsFullbodyHeuristic::syncGridAndBfs()
     const int yc = grid()->numCellsY();
     const int zc = grid()->numCellsZ();
 //    SMPL_DEBUG_NAMED(LOG, "Initializing BFS of size %d x %d x %d = %d", xc, yc, zc, xc * yc * zc);
-    m_bfs.reset(new BFS_3D(xc, yc, zc));
+    m_bfs_3d.reset(new BFS_3D(xc, yc, zc));
+    m_bfs_2d.reset(new BFS_2D(xc, yc));
     const int cell_count = xc * yc * zc;
     int wall_count = 0;
+    int projection_cell_thresh = m_2d_projection_thresh/grid()->resolution();
+
     for (int x = 0; x < xc; ++x) {
     for (int y = 0; y < yc; ++y) {
-    for (int z = 0; z < zc; ++z) {
-        const double radius = m_inflation_radius;
-        if (grid()->getDistance(x, y, z) <= radius) {
-            m_bfs->setWall(x, y, z);
-            ++wall_count;
+        double min_dist = std::numeric_limits<double>::max();
+        for (int z = 0; z < zc; ++z) {
+            const double radius = m_inflation_radius;
+            if (grid()->getDistance(x, y, z) <= radius) {
+                m_bfs_3d->setWall(x, y, z);
+                ++wall_count;
+            }
+            if( z < projection_cell_thresh ){
+                //Project occupancy grid up till a height of projection_thresh.
+                min_dist = std::min(min_dist,  grid()->getDistance(x, y, z) );
+            }
         }
-    }
+        if(min_dist <= m_inflation_radius)
+            m_bfs_2d->setWall(x, y);
     }
     }
 
     SMPL_DEBUG_NAMED(LOG, "%d/%d (%0.3f%%) walls in the bfs heuristic", wall_count, cell_count, 100.0 * (double)wall_count / cell_count);
 }
+
+visual::Marker BfsFullbodyHeuristic::get2DMapVisualization(){
+    const int xc = grid()->numCellsX();
+    const int yc = grid()->numCellsY();
+    std::vector<Vector3> voxels;
+    for(int i=0 ; i<xc; i++){
+        for(int j=0; j<yc; j++)
+            if(m_bfs_2d->isWall(i, j)){
+                    Vector3 p;
+                    grid()->gridToWorld(i, j, 0, p.x(), p.y(), p.z());
+                    voxels.push_back(p);
+
+            }
+    }
+    return visual::MakeCubesMarker(
+        std::move(voxels),
+        m_grid->resolution(),
+        visual::Color{ 0.8f, 0.3f, 0.5f, 1.0f },
+        grid()->getReferenceFrame(),
+        "projected_2d_voxels");
+}
+
 
 int BfsFullbodyHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const
 {

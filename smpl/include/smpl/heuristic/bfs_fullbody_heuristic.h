@@ -38,6 +38,7 @@
 // project includes
 #include <smpl/occupancy_grid.h>
 #include <smpl/bfs/bfs3d.h>
+#include <smpl/bfs/bfs2d.h>
 #include <smpl/debug/marker.h>
 #include <smpl/heuristic/robot_heuristic.h>
 
@@ -85,17 +86,22 @@ public:
     ///@}
     void syncGridAndBfs();
 
+    visual::Marker get2DMapVisualization();
+    inline void set2DProjectionThresh(double th){m_2d_projection_thresh = th;}
+
     std::vector<std::vector<double>> m_heuristic_base_poses;
 
 private:
 
     const OccupancyGrid* m_grid = nullptr;
 
-    std::unique_ptr<BFS_3D> m_bfs;
+    std::unique_ptr<BFS_3D> m_bfs_3d;
+    std::unique_ptr<BFS_2D> m_bfs_2d;
     PointProjectionExtension* m_pp = nullptr;
 
     double m_inflation_radius = 0.0;
     int m_cost_per_cell = 1;
+    double m_2d_projection_thresh = 1.5;
 
     struct CellCoord
     {
