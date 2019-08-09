@@ -145,6 +145,13 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
                 found_base = true;
             }
         }
+        ROS_ERROR("Found base: %f, %f", m_heuristic_base_poses[0][1], m_heuristic_base_poses[0][1]);
+        grid()->worldToGrid(
+                m_heuristic_base_poses[0][0],
+                m_heuristic_base_poses[0][1],
+                0,
+                gx, gy, gz);
+        m_bfs_2d->run(gx, gy);
         if (!found_base) {
             ROS_ERROR("Could not find a valid base state.");
         }
@@ -261,20 +268,23 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         double dist_rot1 = fabs(shortest_angle_dist(p_xyyaw[2], angle_p_target));
 
         // Move to target xyz
-        auto dist_xyz_target = sqrt( (p_xyyaw[0] - target_base[0])*(p_xyyaw[0] - target_base[0]) + p_xyyaw[1] - target_base[1]*(p_xyyaw[1] - target_base[1]) );
+        //auto dist_xyz_target = sqrt( (p_xyyaw[0] - target_base[0])*(p_xyyaw[0] - target_base[0]) + p_xyyaw[1] - target_base[1]*(p_xyyaw[1] - target_base[1]) );
+        int robot_grid[3];
+        grid()->worldToGrid(robot_state[0], robot_state[0], 0, robot_grid[0], robot_grid[1], robot_grid[2]);
+        auto dist_xyz_target = getBfsCostToGoal(robot_grid[0], robot_grid[1]);
 
         // Achieve target yaw
         double dist_rot2 = fabs(shortest_angle_dist(angle_p_target, target_base[3]));
 
         //base_dist = std::sqrt( (p_xyz[0] - target_base[0])*(p_xyz[0] - target_base[0]) + (p_xyz[1] - target_base[1])*(p_xyz[1] - target_base[1]));// + fabs(shortest_angle_dist( target_base[2], Y));
-        SMPL_DEBUG_NAMED(LOG, "rot1: %f, dist: %f, rot2: %f", dist_rot1, dist_xyz_target, dist_rot2);
-        base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
+        //SMPL_DEBUG_NAMED(LOG, "rot1: %f, dist: %f, rot2: %f", dist_rot1, dist_xyz_target, dist_rot2);
+        //base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
+        base_dist = dist_xyz_target;
     } else {
         base_dist = 0;
     }
 
-    int heuristic = m_cost_per_cell*base_dist + getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
-    //SMPL_DEBUG_NAMED(LOG,"base: %f, bfs: %d", m_cost_per_cell*base_dist, getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z() ));
+    int heuristic = m_cost_per_cell*base_dist;// + getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
     SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
     //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
@@ -460,6 +470,58 @@ auto BfsFullbodyHeuristic::getValuesVisualization() -> visual::Marker
             "bfs_values");
 }
 
+visual::Marker BfsFullbodyHeuristic::get2DValuesVisualization(){
+    std::vector<Vector3> voxels;
+
+    const int xc = grid()->numCellsX();
+    const int yc = grid()->numCellsY();
+
+    int start_heur = GetGoalHeuristic(planningSpace()->getStartStateID());
+    if (start_heur == Infinity) {
+        return visual::MakeEmptyMarker();
+    }
+
+    SMPL_INFO("Start cell heuristic: %d", start_heur);
+
+    const int max_cost = (int)(1.1 * start_heur);
+    SMPL_INFO("Get visualization of cells up to cost %d", max_cost);
+
+    std::vector<visual::Color> colors;
+
+    for(int i=0 ; i<xc; i++)
+        for(int j=0; j<yc; j++){
+            Vector3 p;
+            grid()->gridToWorld(i, j, 0, p.x(), p.y(), p.z());
+            voxels.push_back(p);
+
+            double cost_pct = (double)getBfsCostToGoal(xc, yc) / (double)max_cost;
+
+            visual::Color color = visual::MakeColorHSV(300.0 - 300.0 * cost_pct);
+
+            auto clamp = [](double d, double lo, double hi) {
+                if (d < lo) {
+                    return lo;
+                } else if (d > hi) {
+                    return hi;
+                } else {
+                    return d;
+                }
+            };
+            color.r = clamp(color.r, 0.0f, 1.0f);
+            color.g = clamp(color.g, 0.0f, 1.0f);
+            color.b = clamp(color.b, 0.0f, 1.0f);
+            color.a = 1.0f;
+            colors.push_back(color);
+        }
+
+    return visual::MakeCubesMarker(
+            std::move(voxels),
+            0.5 * grid()->resolution(),
+            std::move(colors),
+            grid()->getReferenceFrame(),
+            "bfs2d_values");
+}
+
 void BfsFullbodyHeuristic::syncGridAndBfs()
 {
     const int xc = grid()->numCellsX();
@@ -504,7 +566,6 @@ visual::Marker BfsFullbodyHeuristic::get2DMapVisualization(){
                     Vector3 p;
                     grid()->gridToWorld(i, j, 0, p.x(), p.y(), p.z());
                     voxels.push_back(p);
-
             }
     }
     return visual::MakeCubesMarker(
@@ -526,6 +587,18 @@ int BfsFullbodyHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int 
     }
     else {
         return m_cost_per_cell * bfs.getDistance(x, y, z);
+    }
+}
+
+int BfsFullbodyHeuristic::getBfsCostToGoal(int x, int y) const {
+    if (!m_bfs_2d->inBounds(x, y)) {
+        return Infinity;
+    }
+    else if (m_bfs_2d->getDistance(x, y) == BFS_2D::WALL) {
+        return Infinity;
+    }
+    else {
+        return 1000*m_cost_per_cell*grid()->resolution()* m_bfs_2d->getDistance(x, y);
     }
 }
 

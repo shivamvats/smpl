@@ -87,6 +87,7 @@ public:
     void syncGridAndBfs();
 
     visual::Marker get2DMapVisualization();
+    visual::Marker get2DValuesVisualization();
     inline void set2DProjectionThresh(double th){m_2d_projection_thresh = th;}
 
     std::vector<std::vector<double>> m_heuristic_base_poses;
@@ -112,6 +113,7 @@ private:
     std::vector<CellCoord> m_goal_cells;
 
     int getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const;
+    int getBfsCostToGoal(int x, int y) const;
 };
 
 } // namespace smpl
