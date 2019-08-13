@@ -270,22 +270,24 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         // Move to target xyz
         //auto dist_xyz_target = sqrt( (p_xyyaw[0] - target_base[0])*(p_xyyaw[0] - target_base[0]) + p_xyyaw[1] - target_base[1]*(p_xyyaw[1] - target_base[1]) );
         int robot_grid[3];
-        grid()->worldToGrid(robot_state[0], robot_state[0], 0, robot_grid[0], robot_grid[1], robot_grid[2]);
-        auto dist_xyz_target = getBfsCostToGoal(robot_grid[0], robot_grid[1]);
+        grid()->worldToGrid(robot_state[0], robot_state[1], 0, robot_grid[0], robot_grid[1], robot_grid[2]);
+        SMPL_DEBUG_NAMED(LOG, "World Point:(%f, %f)", robot_state[0], robot_state[1]);
+        SMPL_DEBUG_NAMED(LOG, "Grid Point:(%d, %d)", robot_grid[0], robot_grid[1]);
+        auto dist_xyz_target = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1]);
 
         // Achieve target yaw
         double dist_rot2 = fabs(shortest_angle_dist(angle_p_target, target_base[3]));
 
         //base_dist = std::sqrt( (p_xyz[0] - target_base[0])*(p_xyz[0] - target_base[0]) + (p_xyz[1] - target_base[1])*(p_xyz[1] - target_base[1]));// + fabs(shortest_angle_dist( target_base[2], Y));
         //SMPL_DEBUG_NAMED(LOG, "rot1: %f, dist: %f, rot2: %f", dist_rot1, dist_xyz_target, dist_rot2);
-        //base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
-        base_dist = dist_xyz_target;
+        base_dist = dist_rot1 + dist_xyz_target + dist_rot2;
+        //base_dist = dist_xyz_target;
     } else {
         base_dist = 0;
     }
 
-    int heuristic = m_cost_per_cell*base_dist;// + getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
-    SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
+    int heuristic = base_dist;// + getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
+    //SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
     //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
     return heuristic;
@@ -494,7 +496,7 @@ visual::Marker BfsFullbodyHeuristic::get2DValuesVisualization(){
             grid()->gridToWorld(i, j, 0, p.x(), p.y(), p.z());
             voxels.push_back(p);
 
-            double cost_pct = (double)getBfsCostToGoal(xc, yc) / (double)max_cost;
+            double cost_pct = (double)(m_cost_per_cell*getBfsCostToGoal(i, j)) / (double)max_cost;
 
             visual::Color color = visual::MakeColorHSV(300.0 - 300.0 * cost_pct);
 
@@ -586,7 +588,7 @@ int BfsFullbodyHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int 
         return Infinity;
     }
     else {
-        return m_cost_per_cell * bfs.getDistance(x, y, z);
+        return bfs.getDistance(x, y, z);
     }
 }
 
@@ -598,7 +600,7 @@ int BfsFullbodyHeuristic::getBfsCostToGoal(int x, int y) const {
         return Infinity;
     }
     else {
-        return 1000*m_cost_per_cell*grid()->resolution()* m_bfs_2d->getDistance(x, y);
+        return m_bfs_2d->getDistance(x, y);
     }
 }
 
