@@ -605,8 +605,8 @@ int ManipLattice::cost(
     auto DefaultCostMultiplier = 1000;
 
     std::vector<double> W( start_state.size(), 1 );
-    W[0]*= 2;
-    W[1]*= 2;
+    W[0]*= 1;
+    W[1]*= 1;
     W[2]*= 1;
     int cost = DefaultCostMultiplier*euclideanDistance( start_state, end_state, W );
     return cost;//DefaultCostMultiplier;
