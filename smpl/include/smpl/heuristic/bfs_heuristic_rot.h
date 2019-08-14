@@ -29,8 +29,8 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_BFS_HEURISTIC_H
-#define SMPL_BFS_HEURISTIC_H
+#ifndef SMPL_BFS_HEURISTIC_ROT_H
+#define SMPL_BFS_HEURISTIC_ROT_H
 
 // standard includes
 #include <memory>
@@ -39,73 +39,21 @@
 #include <smpl/occupancy_grid.h>
 #include <smpl/bfs/bfs3d.h>
 #include <smpl/debug/marker.h>
-#include <smpl/heuristic/robot_heuristic.h>
+#include <smpl/heuristic/bfs_heuristic.h>
 
 namespace smpl {
 
-class BfsHeuristic : public RobotHeuristic
+class BfsHeuristicRot : public BfsHeuristic
 {
 public:
-
-    virtual ~BfsHeuristic();
+    virtual ~BfsHeuristicRot();
 
     virtual bool init(RobotPlanningSpace* space, const OccupancyGrid* grid);
-
-    double inflationRadius() const { return m_inflation_radius; }
-    void setInflationRadius(double radius);
-    int costPerCell() const { return m_cost_per_cell; }
-    void setCostPerCell(int cost);
-
-    void syncGridAndBfs();
-
-    auto grid() const -> const OccupancyGrid* { return m_grid; }
-
-    auto getWallsVisualization() const -> visual::Marker;
-    auto getValuesVisualization() -> visual::Marker;
-
-    /// \name Required Public Functions from RobotHeuristic
-    ///@{
-    double getMetricStartDistance(double x, double y, double z) override;
-    double getMetricGoalDistance(double x, double y, double z) override;
-    ///@}
-
-    /// \name Required Public Functions from Extension
-    ///@{
-    Extension* getExtension(size_t class_code) override;
-    ///@}
-
-    /// \name Reimplemented Public Functions from RobotPlanningSpaceObserver
-    ///@{
-    void updateGoal(const GoalConstraint& goal) override;
-    ///@}
-
     /// \name Required Public Functions from Heuristic
     ///@{
     virtual int GetGoalHeuristic(int state_id) override;
-    int GetStartHeuristic(int state_id) override;
-    int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
-
-    int getBfsCostToGoal(int x, int y, int z) const;
-
-    PointProjectionExtension* m_pp = nullptr;
-private:
-
-    const OccupancyGrid* m_grid = nullptr;
-
-    std::unique_ptr<BFS_3D> m_bfs;
-
-    double m_inflation_radius = 0.0;
-    int m_cost_per_cell = 1;
-
-    struct CellCoord
-    {
-        int x, y, z;
-        CellCoord() = default;
-        CellCoord(int x, int y, int z) : x(x), y(y), z(z) { }
-    };
-    std::vector<CellCoord> m_goal_cells;
-    int getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const;
+    Extension* getExtension(size_t class_code) override;
 };
 
 } // namespace smpl

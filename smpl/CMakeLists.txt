@@ -155,6 +155,7 @@ set(SMPL_LIBRARY_SOURCES
     src/graph/simple_workspace_lattice_action_space.cpp
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
+    src/heuristic/bfs_heuristic_rot.cpp
     src/heuristic/bfs_fullbody_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
     src/heuristic/generic_egraph_heuristic.cpp
