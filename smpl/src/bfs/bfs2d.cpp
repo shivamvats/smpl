@@ -84,6 +84,13 @@ bool BFS_2D::isUndiscovered(int x, int y) const
     return m_distance_grid[node] == UNDISCOVERED;
 }
 
+void BFS_2D::setGoalCells(std::vector<int>& xs, std::vector<int>& ys){
+    assert(xs.size() == ys.size());
+    for(int i=0; i<xs.size(); i++){
+        m_distance_grid[getNode(xs[i], ys[i])] = 0;
+    }
+}
+
 #define EXPAND_NEIGHBOR(offset)                            \
     if (m_distance_grid[currentNode + offset] < 0) {         \
         m_queue[m_queue_tail++] = currentNode + offset;        \

@@ -87,6 +87,7 @@ public:
     ///@}
 
     int getBfsCostToGoal(int x, int y, int z) const;
+    inline int getCostPerCell(){ return m_cost_per_cell; }
 
     PointProjectionExtension* m_pp = nullptr;
 private:

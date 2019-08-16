@@ -132,13 +132,13 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     visual::Color color{0, 0, 0, c};
     switch(rep_id){
         case 0:
-            color.r = c;
+            color.r = 1;
             break;
         case 1:
-            color.g = c;
+            color.g = 1;
             break;
         case 2:
-            color.b = c;
+            color.b = 1;
             break;
         default:
             break;
@@ -215,9 +215,16 @@ int ManipLatticeMultiRep::cost(
     auto& end_state = HashEntry2->state;
     auto DefaultCostMultiplier = 1000;
     std::vector<double> W( start_state.size(), 1 );
-    W[0]*= 2;
-    W[1]*= 2;
+    W[0]*= 10;
+    W[1]*= 10;
     W[2]*= 1;
+    W[3]*= 10;
+    W[4]*= 10;
+    W[5]*= 10;
+    W[6]*= 20;
+    W[7]*= 20;
+    W[8]*= 20;
+    W[9]*= 20;
     int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
     return cost;
 }

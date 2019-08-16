@@ -38,6 +38,7 @@
 #include <smpl/debug/colors.h>
 #include <smpl/grid/grid.h>
 #include <smpl/heap/intrusive_heap.h>
+#include <smpl/angles.h>
 
 namespace smpl {
 
@@ -50,7 +51,16 @@ BfsHeuristicRot::~BfsHeuristicRot()
 
 bool BfsHeuristicRot::init(RobotPlanningSpace* space, const OccupancyGrid* grid)
 {
-    return BfsHeuristic::init(space, grid);
+    if(!BfsHeuristic::init(space, grid))
+        return false;
+    m_extract_ext = space->getExtension<ExtractRobotStateExtension>();
+    if (m_extract_ext)
+        SMPL_INFO("Got Exract State Extension");
+    else {
+        SMPL_ERROR("Extract Extension Null.");
+        return false;
+    }
+    return true;
 }
 
 Extension* BfsHeuristicRot::getExtension(size_t class_code)
@@ -63,6 +73,9 @@ Extension* BfsHeuristicRot::getExtension(size_t class_code)
 
 int BfsHeuristicRot::GetGoalHeuristic(int state_id)
 {
+    if(state_id == planningSpace()->getGoalStateID())
+        return 0;
+
     if (m_pp == NULL) {
         return 0;
     }
@@ -75,8 +88,14 @@ int BfsHeuristicRot::GetGoalHeuristic(int state_id)
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
 
-    int heuristic = getBfsCostToGoal(dp.x(), dp.y(), dp.z());
-    SMPL_DEBUG_NAMED(LOG, "BFS Heuristic: h(%f, %f, %f) = %d", p.x(), p.y(), p.z(), heuristic);
+    RobotState robot_state = m_extract_ext->extractState(state_id);
+
+    double target_yaw = atan2(p.y() - robot_state[1], p.x() - robot_state[0]);
+    double yaw_dist = shortest_angle_dist(target_yaw, robot_state[2]);
+
+    int end_eff_heuristic = getBfsCostToGoal(dp.x(), dp.y(), dp.z());
+    int heuristic = end_eff_heuristic + 0.2*getCostPerCell()*yaw_dist;
+    SMPL_DEBUG_NAMED(LOG, "BfsRot Heuristic: h(%f, %f, %f) = %d + %d", p.x(), p.y(), p.z(), end_eff_heuristic, 0.1*getCostPerCell()*yaw_dist );
     return heuristic;
 }
 

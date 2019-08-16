@@ -54,6 +54,10 @@ public:
     virtual int GetGoalHeuristic(int state_id) override;
     ///@}
     Extension* getExtension(size_t class_code) override;
+
+private:
+    ExtractRobotStateExtension* m_extract_ext;
+
 };
 
 } // namespace smpl

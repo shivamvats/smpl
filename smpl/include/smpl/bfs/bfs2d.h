@@ -25,6 +25,7 @@ public:
 
     void setWall(int x, int y);
 
+    void setGoalCells( std::vector<int>&, std::vector<int>& );
     void run(int x, int y);
 
     /// \brief Run the BFS starting from a variable number of cells
