@@ -37,6 +37,8 @@
 
 namespace smpl {
 
+using RepId = unsigned int;
+
 class RobotPlanningSpace;
 struct GoalConstraint;
 
@@ -46,7 +48,7 @@ public:
 
     virtual ~ActionSpace();
 
-    bool init(RobotPlanningSpace* space);
+    virtual bool init(RobotPlanningSpace* space);
 
     auto planningSpace() -> RobotPlanningSpace* { return m_space; }
     auto planningSpace() const -> const RobotPlanningSpace* { return m_space; }
@@ -67,6 +69,15 @@ private:
 
     RobotPlanningSpace* m_space = nullptr;
 };
+
+class MultiActionSpace : virtual public ActionSpace {
+    public:
+
+    virtual ~MultiActionSpace();
+
+    virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
+
+}
 
 } // namespace smpl
 

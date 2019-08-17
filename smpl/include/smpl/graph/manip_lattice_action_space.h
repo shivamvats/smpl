@@ -55,7 +55,7 @@ namespace smpl {
 
 class ManipLattice;
 
-class ManipLatticeActionSpace : public ActionSpace
+class ManipLatticeActionSpace : virtual public ActionSpace
 {
 public:
 
@@ -133,6 +133,21 @@ protected:
     auto getStartGoalDistances(const RobotState& state)
         -> std::pair<double, double>;
 };
+
+class ManipLatticeMultiActionSpace :
+        public MultiAction, public ManipLatticeActionSpace {
+    public:
+    virtual bool init(ManipLattice* space, int num_reps);
+    void addMotionPrim(
+        RepId rep_id,
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse = true);
+    bool apply(RepId, const RobotState& parent, std::vector<Action>& actions) override;
+
+    private:
+    std::vector<std::vector<MotionPrimitive>> m_rep_mprims;
+}
 
 } // namespace smpl
 
