@@ -513,11 +513,17 @@ bool ManipLatticeMultiActionSpace::init(
 }
 
 void ManipLatticeMultiActionSpace::addMotionPrim(
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse){
+    addMotionPrim( 0, mprim, short_dist_mprim, add_converse );
+}
+void ManipLatticeMultiActionSpace::addMotionPrim(
         RepId rep_id,
         const std::vector<double>& mprim,
         bool short_dist_mprim,
-        bool add_converse = true ){
-    assert(rep_id < m_vec_mprims.size());
+        bool add_converse){
+    assert(rep_id < m_rep_mprims.size());
 
     MotionPrimitive m;
 
@@ -528,7 +534,7 @@ void ManipLatticeMultiActionSpace::addMotionPrim(
     }
 
     m.action.push_back(mprim);
-    m_vec_mprims[rep_id].push_back(m);
+    m_rep_mprims[rep_id].push_back(m);
 
     if (add_converse) {
         for (RobotState& state : m.action) {
@@ -540,18 +546,24 @@ void ManipLatticeMultiActionSpace::addMotionPrim(
     }
 }
 
+void ManipLatticeMultiActionSpace::clear(){
+    ManipLatticeActionSpace::clear();
+    m_rep_mprims.clear();
+}
+
 bool ManipLatticeMultiActionSpace::apply(
         RepId _rep_id,
         const RobotState& _parent,
         std::vector<Action>& _actions ){
-    double goal_dist, start_dist;
-    std::tie(start_dist, goal_dist) = getStartGoalDistances(parent);
 
-    for (auto& prim : m_vec_mprims[_rep_id]) {
-        (void)getAction(parent, goal_dist, start_dist, prim, actions);
+    double goal_dist, start_dist;
+    std::tie(start_dist, goal_dist) = getStartGoalDistances(_parent);
+
+    for (auto& prim : m_rep_mprims[_rep_id]) {
+        (void)getAction(_parent, goal_dist, start_dist, prim, _actions);
     }
 
-    if (actions.empty()) {
+    if (_actions.empty()) {
         SMPL_WARN_ONCE("No motion primitives specified");
     }
 

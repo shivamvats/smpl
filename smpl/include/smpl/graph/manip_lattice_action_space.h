@@ -65,12 +65,12 @@ public:
 
     bool load(const std::string& action_filename);
 
-    void addMotionPrim(
+    virtual void addMotionPrim(
         const std::vector<double>& mprim,
         bool short_dist_mprim,
         bool add_converse = true);
 
-    void clear();
+    virtual void clear();
 
     const_iterator begin() const { return m_mprims.begin(); }
     const_iterator end() const { return m_mprims.end(); }
@@ -93,7 +93,18 @@ public:
     bool apply(const RobotState& parent, std::vector<Action>& actions) override;
     ///@}
 
-protected:
+    protected:
+
+    virtual bool getAction(
+        const RobotState& parent,
+        double goal_dist,
+        double start_dist,
+        const MotionPrimitive& mp,
+        std::vector<Action>& actions);
+    auto getStartGoalDistances(const RobotState& state)
+        -> std::pair<double, double>;
+
+private:
 
     std::vector<MotionPrimitive> m_mprims;
 
@@ -118,36 +129,36 @@ protected:
         ik_option::IkOption option,
         std::vector<Action>& actions);
 
-    virtual bool getAction(
-        const RobotState& parent,
-        double goal_dist,
-        double start_dist,
-        const MotionPrimitive& mp,
-        std::vector<Action>& actions);
-
     bool mprimActive(
         double start_dist,
         double goal_dist,
         MotionPrimitive::Type type) const;
 
-    auto getStartGoalDistances(const RobotState& state)
-        -> std::pair<double, double>;
 };
 
+} // namespace smpl
+
+namespace smpl {
+
 class ManipLatticeMultiActionSpace :
-        public MultiAction, public ManipLatticeActionSpace {
+        public MultiActionSpace, public ManipLatticeActionSpace {
     public:
     virtual bool init(ManipLattice* space, int num_reps);
+    void addMotionPrim(
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse = true );
     void addMotionPrim(
         RepId rep_id,
         const std::vector<double>& mprim,
         bool short_dist_mprim,
         bool add_converse = true);
+    void clear() override;
     bool apply(RepId, const RobotState& parent, std::vector<Action>& actions) override;
 
     private:
     std::vector<std::vector<MotionPrimitive>> m_rep_mprims;
-}
+};
 
 } // namespace smpl
 

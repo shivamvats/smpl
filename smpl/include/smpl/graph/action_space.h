@@ -73,11 +73,9 @@ private:
 class MultiActionSpace : virtual public ActionSpace {
     public:
 
-    virtual ~MultiActionSpace();
-
     virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
 
-}
+};
 
 } // namespace smpl
 
