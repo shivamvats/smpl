@@ -143,6 +143,8 @@ namespace smpl {
 class ManipLatticeMultiActionSpace :
         public MultiActionSpace, public ManipLatticeActionSpace {
     public:
+
+    ManipLatticeMultiActionSpace(int _nreps) : MultiActionSpace(_nreps) {}
     virtual bool init(ManipLattice* space, int num_reps);
     void addMotionPrim(
         const std::vector<double>& mprim,
