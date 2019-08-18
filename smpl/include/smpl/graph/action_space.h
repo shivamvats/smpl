@@ -72,9 +72,13 @@ private:
 
 class MultiActionSpace : virtual public ActionSpace {
     public:
+
+    using ActionSpace::apply;
+
     MultiActionSpace(int _nreps) : m_nreps{_nreps} {}
 
     virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
+
     inline int numReps() const {
         return m_nreps;
     }
