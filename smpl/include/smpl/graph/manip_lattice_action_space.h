@@ -63,7 +63,7 @@ public:
 
     bool init(ManipLattice* space);
 
-    bool load(const std::string& action_filename);
+    virtual bool load(const std::string& action_filename);
 
     virtual void addMotionPrim(
         const std::vector<double>& mprim,
@@ -145,7 +145,10 @@ class ManipLatticeMultiActionSpace :
     public:
 
     ManipLatticeMultiActionSpace(int _nreps) : MultiActionSpace(_nreps) {}
-    virtual bool init(ManipLattice* space, int num_reps);
+    virtual bool init(ManipLattice* space);
+
+    virtual bool load(const std::string& action_filename) override;
+    bool load(RepId, const std::string& action_filename);
     void addMotionPrim(
         const std::vector<double>& mprim,
         bool short_dist_mprim,

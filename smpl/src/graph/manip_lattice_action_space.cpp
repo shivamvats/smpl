@@ -506,10 +506,94 @@ bool ManipLatticeActionSpace::mprimActive(
     }
 }
 
-bool ManipLatticeMultiActionSpace::init(
-        ManipLattice* space, int num_reps ){
-    m_rep_mprims.resize(num_reps);
+bool ManipLatticeMultiActionSpace::init(ManipLattice* space){
+    m_rep_mprims.resize(numReps());
     return ManipLatticeActionSpace::init(space);
+}
+
+bool ManipLatticeMultiActionSpace::load( const std::string& action_filename ){
+    return load( 0, action_filename );
+}
+
+bool ManipLatticeMultiActionSpace::load( RepId rep_id, const std::string& action_filename ) {
+    ROS_ERROR("%s", action_filename.c_str());
+    FILE* fCfg = fopen(action_filename.c_str(), "r");
+    if (!fCfg) {
+        SMPL_ERROR("Failed to open action set file. (file: '%s')", action_filename.c_str());
+        return false;
+    }
+
+    char sTemp[1024] = { 0 };
+    int nrows = 0;
+    int ncols = 0;
+    int short_mprims = 0;
+
+    // read and check header
+    if (fscanf(fCfg, "%1023s", sTemp) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+    }
+
+    if (strcmp(sTemp, "Motion_Primitives(degrees):") != 0) {
+        SMPL_ERROR("First line of motion primitive file should be 'Motion_Primitives(degrees):'. Please check your file. (parsed string: %s)\n", sTemp);
+        return false;
+    }
+
+    // read number of actions
+    if (fscanf(fCfg, "%d", &nrows) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+
+    // read length of joint array
+    if (fscanf(fCfg, "%d", &ncols) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+
+    // read number of short distance motion primitives
+    if (fscanf(fCfg, "%d", &short_mprims) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+
+    if (short_mprims == nrows) {
+        SMPL_WARN("# of motion prims == # of short distance motion prims. No long distance motion prims set.");
+    }
+
+    std::vector<double> mprim(ncols, 0);
+
+    bool have_short_dist_mprims = short_mprims > 0;
+    if (have_short_dist_mprims) {
+        useAmp(MotionPrimitive::SHORT_DISTANCE, true);
+    }
+
+    ManipLattice* lattice = static_cast<ManipLattice*>(planningSpace());
+
+    for (int i = 0; i < nrows; ++i) {
+        // read joint delta
+        for (int j = 0; j < ncols; ++j) {
+            double d;
+            if (fscanf(fCfg, "%lf", &d) < 1)  {
+                SMPL_ERROR("Parsed string has length < 1.");
+                return false;
+            }
+            if (feof(fCfg)) {
+                SMPL_ERROR("End of parameter file reached prematurely. Check for newline.");
+                return false;
+            }
+            mprim[j] = d * lattice->resolutions()[j];
+            SMPL_DEBUG("Got %0.3f deg -> %0.3f rad", d, mprim[j]);
+        }
+
+        if (i < (nrows - short_mprims)) {
+            addMotionPrim(rep_id, mprim, false);
+        } else {
+            addMotionPrim(rep_id, mprim, true);
+        }
+    }
+
+    fclose(fCfg);
+    return true;
 }
 
 void ManipLatticeMultiActionSpace::addMotionPrim(
@@ -518,6 +602,7 @@ void ManipLatticeMultiActionSpace::addMotionPrim(
         bool add_converse){
     addMotionPrim( 0, mprim, short_dist_mprim, add_converse );
 }
+
 void ManipLatticeMultiActionSpace::addMotionPrim(
         RepId rep_id,
         const std::vector<double>& mprim,
