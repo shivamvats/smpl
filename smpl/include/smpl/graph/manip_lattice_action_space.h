@@ -147,13 +147,14 @@ class ManipLatticeMultiActionSpace :
     void addMotionPrim(
         const std::vector<double>& mprim,
         bool short_dist_mprim,
-        bool add_converse = true );
+        bool add_converse = true ) override;
     void addMotionPrim(
         RepId rep_id,
         const std::vector<double>& mprim,
         bool short_dist_mprim,
         bool add_converse = true);
     void clear() override;
+    bool apply(const RobotState& parent, std::vector<Action>& actions) override;
     bool apply(RepId, const RobotState& parent, std::vector<Action>& actions) override;
 
     private:

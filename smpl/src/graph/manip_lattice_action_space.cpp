@@ -552,6 +552,12 @@ void ManipLatticeMultiActionSpace::clear(){
 }
 
 bool ManipLatticeMultiActionSpace::apply(
+        const RobotState& _parent,
+        std::vector<Action>& _actions ){
+    return apply(0, _parent, _actions);
+}
+
+bool ManipLatticeMultiActionSpace::apply(
         RepId _rep_id,
         const RobotState& _parent,
         std::vector<Action>& _actions ){
