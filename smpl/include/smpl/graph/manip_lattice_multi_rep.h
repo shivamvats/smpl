@@ -68,10 +68,10 @@ public:
         RobotModel* robot,
         CollisionChecker* checker,
         const std::vector<double>& resolutions,
-        std::vector<ActionSpace*>& action_spaces);
+        MultiActionSpace* action_spaces);
 
-    auto actionSpaces() -> std::vector<ActionSpace*> { return m_action_spaces; }
-    auto actionSpaces() const -> const std::vector<ActionSpace*> { return m_action_spaces; }
+    auto actionSpace() -> MultiActionSpace* { return m_multi_action_space; }
+    auto actionSpace() const -> const MultiActionSpace* { return m_multi_action_space; }
 
     /// \name Required Public Functions from RobotPlanningSpace
     ///@{
@@ -112,7 +112,7 @@ protected:
 private:
 
     //ForwardKinematicsInterface* m_fk_iface = nullptr;
-    std::vector<ActionSpace*> m_action_spaces;
+    MultiActionSpace* m_multi_action_space;
 
     /*
     // cached from robot model

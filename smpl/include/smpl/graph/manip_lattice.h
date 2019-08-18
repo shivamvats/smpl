@@ -202,10 +202,8 @@ public:
             const visual::Color& color)
         -> std::vector<visual::Marker>;
 
-    public:
-
+    protected:
     ForwardKinematicsInterface* m_fk_iface = nullptr;
-    ActionSpace* m_actions = nullptr;
 
     // cached from robot model
     std::vector<double> m_min_limits;
@@ -237,9 +235,9 @@ public:
 
     void startNewSearch();
 
-    /// \name planning
-    ///@{
-    ///@}
+    private:
+
+    ActionSpace* m_actions = nullptr;
 };
 
 } // namespace smpl
