@@ -231,6 +231,7 @@ auto MakeManipLattice(
     return std::move(space);
 }
 
+/*
 auto MakeManipLatticeMultiRep(
     RobotModel* robot,
     CollisionChecker* checker,
@@ -369,6 +370,7 @@ auto MakeManipLatticeMultiRep(
 
     return std::move(space);
 }
+*/
 
 auto MakeManipLatticeEGraph(
     RobotModel* robot,

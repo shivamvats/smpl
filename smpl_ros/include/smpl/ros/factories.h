@@ -33,6 +33,7 @@ auto MakeManipLattice(
     const OccupancyGrid* grid)
     -> std::unique_ptr<RobotPlanningSpace>;
 
+/*
 auto MakeManipLatticeMultiRep(
     RobotModel* robot,
     CollisionChecker* checker,
@@ -40,6 +41,7 @@ auto MakeManipLatticeMultiRep(
     const OccupancyGrid* grid,
     const int num_heuristics)
     -> std::unique_ptr<RobotPlanningSpace>;
+*/
 
 auto MakeManipLatticeEGraph(
     RobotModel* robot,

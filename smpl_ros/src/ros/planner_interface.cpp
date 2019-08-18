@@ -214,11 +214,13 @@ PlannerInterface::PlannerInterface(
         return MakeManipLattice(r, c, p, m_grid);
     };
 
+    /*
     m_space_factories["manip_mr"] = [this]( RobotModel* r,
             CollisionChecker* c,
             const PlanningParams& p ) {
         return MakeManipLatticeMultiRep( r, c, p, m_grid, m_num_heuristics );
     };
+    */
 
     m_space_factories["manip_lattice_egraph"] = [this](
         RobotModel* r,
