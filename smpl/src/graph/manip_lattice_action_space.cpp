@@ -507,6 +507,7 @@ bool ManipLatticeActionSpace::mprimActive(
 }
 
 bool ManipLatticeMultiActionSpace::init(ManipLattice* space){
+    clear();
     m_rep_mprims.resize(numReps());
     return ManipLatticeActionSpace::init(space);
 }
@@ -608,7 +609,7 @@ void ManipLatticeMultiActionSpace::addMotionPrim(
         const std::vector<double>& mprim,
         bool short_dist_mprim,
         bool add_converse){
-    assert(rep_id < m_rep_mprims.size());
+    assert(rep_id < numReps());
 
     MotionPrimitive m;
 

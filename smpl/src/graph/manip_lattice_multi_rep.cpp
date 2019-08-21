@@ -103,7 +103,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         std::vector<int>* costs ) {
     assert(state_id >= 0 && state_id < m_states.size() && "state id out of bounds");
     assert(succs && costs && "successor buffer is null");
-    assert(rep_id < m_multi_action_space->numreps() && "representation id outside bounds.");
+    assert(rep_id < m_multi_action_space->numReps() && "representation id outside bounds.");
 
     SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "expanding state %d", state_id);
 
