@@ -339,7 +339,6 @@ bool ManipLatticeActionSpace::apply(
     for (auto& prim : m_mprims) {
         (void)getAction(parent, goal_dist, start_dist, prim, actions);
     }
-
     if (actions.empty()) {
         SMPL_WARN_ONCE("No motion primitives specified");
     }
@@ -654,6 +653,15 @@ bool ManipLatticeMultiActionSpace::apply(
     for (auto& prim : m_rep_mprims[_rep_id]) {
         (void)getAction(_parent, goal_dist, start_dist, prim, _actions);
     }
+
+    MotionPrimitive mp;
+    mp.type = MotionPrimitive::SNAP_TO_RPY;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    mp.type = MotionPrimitive::SNAP_TO_XYZ;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    mp.type = MotionPrimitive::SNAP_TO_XYZ_RPY;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+
 
     if (_actions.empty()) {
         SMPL_WARN_ONCE("No motion primitives specified");
