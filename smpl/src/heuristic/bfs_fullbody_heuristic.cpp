@@ -44,6 +44,8 @@
 #include <smpl/heap/intrusive_heap.h>
 #include <smpl/graph/manip_lattice.h>
 
+#define PI 3.14
+
 namespace smpl {
 
 static const char* LOG = "heuristic.bfs_fullbody";
@@ -86,6 +88,7 @@ void BfsFullbodyHeuristic::setCostPerCell(int cost_per_cell)
 
 void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 {
+    syncGridAndBfs();
     switch (goal.type) {
     case GoalType::XYZ_GOAL:
     case GoalType::XYZ_RPY_GOAL:
@@ -115,45 +118,55 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
         auto goal_pose = goal.pose;
         double goal_x = goal_pose.translation()[0];
         double goal_y = goal_pose.translation()[1];
+        auto rot = goal_pose.rotation();
+
+        double r, p, ya;
+        smpl::angles::get_euler_zyx(rot, ya, p, r);
+        ROS_ERROR("Yaw: %f", ya);
 
         double base_x=0, base_y=0;
-        double arm_length = 1.05;
-        double robot_yaw_delta = 60 * 3.14/180;
+        double arm_length = 0.55;
+
+        double delta = 0;
+        double increment = 0.005;
 
         bool found_base = false;
 
-        for (int i=0; i<7; i++) {
-            double theta = i*0.2;
+        double theta_opt = PI/2 + ya;
+        double theta = theta_opt;
+        for (int i=0; i<1000; i++) {
+            delta += increment;
+            // Explore symmetrically about the optimal theta.
+            if(i%2)
+                theta = theta_opt + delta;
+            else
+                theta = theta_opt - delta;
             double possible_x = goal_x + arm_length*cos(theta);
             double possible_y = goal_y + arm_length*sin(theta);
-            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x) + robot_yaw_delta;
+            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
             RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
+            //SV_SHOW_INFO_NAMED("heur", dynamic_cast<smpl::collision::CollisionSpace*>(planningSpace()->collisionChecker())->getCollisionRobotVisualization(possible_base));
             possible_state[0] = possible_x;
             possible_state[1] = possible_y;
             possible_state[2] = possible_yaw;
+            ROS_ERROR("%f, %f, %f", possible_state[0], possible_state[1], possible_state[2] );
 
-            std::vector<double> heuristic_base_pose;
             if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
-                heuristic_base_pose.push_back(possible_x);
-                heuristic_base_pose.push_back(possible_y);
-                heuristic_base_pose.push_back(possible_yaw);
-                m_heuristic_base_poses.push_back(heuristic_base_pose);
+                m_heuristic_base_poses.push_back(possible_state);
                 found_base = true;
+                ROS_INFO("Success on Iteration: %d", i);
+                ROS_INFO("Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
+                break;
             }
         }
-        if (!found_base) {
-            ROS_ERROR("Could not find a valid base state.");
-            break;
-        }
-        else {
-            ROS_ERROR( "%d Valid base pose found.", m_heuristic_base_poses.size() );
-        }
-        ROS_ERROR("Found base: %f, %f", m_heuristic_base_poses[0][1], m_heuristic_base_poses[0][1]);
+        ROS_ERROR("%f, %f", m_heuristic_base_poses[0][0], m_heuristic_base_poses[0][1]);
+        ROS_ERROR("2");
         grid()->worldToGrid(
                 m_heuristic_base_poses[0][0],
                 m_heuristic_base_poses[0][1],
                 0,
                 gx, gy, gz);
+        ROS_ERROR("Base: %d", grid()->getDistance(gx, gy, gz));
         //grid()->worldToGrid(
         //        goal_x,
         //        goal_y,
@@ -265,6 +278,7 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
     int base_dist = 0;
+    int yaw_dist = 0;
     if( state_id != 0 ) {
         auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
         auto& goal_tr = planningSpace()->goal().pose.translation();
@@ -274,16 +288,18 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         auto dist_xyz_target = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1]);
 
         double dist = sqrt( (goal_tr[0] - p.x())*(goal_tr[0] - p.x()) + (goal_tr[1] - p.y())*(goal_tr[1] - p.y()) );
-        if(dist < 0.7)
+        if(dist < 0.5)
             return 0;
         else
             base_dist = dist_xyz_target;
+
+        //yaw_dist = m_cost_per_cell*fabs(robot_state[2] - m_heuristic_base_poses[0][2]);
     } else {
         base_dist = 0;
     }
 
     //int arm_heur = 0.1*m_cost_per_cell*getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
-    int heuristic = base_dist;// + arm_heur;
+    int heuristic = base_dist;// + yaw_dist;// + arm_heur;
     //SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
     //int heuristic = m_cost_per_cell*base_dist;
     SMPL_DEBUG_NAMED(LOG, "BfsFullbodyHeuristic value: %d ", heuristic );
