@@ -56,7 +56,7 @@ public:
     int costPerCell() const { return m_cost_per_cell; }
     void setCostPerCell(int cost);
 
-    void syncGridAndBfs();
+    virtual void syncGridAndBfs();
 
     auto grid() const -> const OccupancyGrid* { return m_grid; }
 
@@ -76,7 +76,7 @@ public:
 
     /// \name Reimplemented Public Functions from RobotPlanningSpaceObserver
     ///@{
-    void updateGoal(const GoalConstraint& goal) override;
+    virtual void updateGoal(const GoalConstraint& goal) override;
     ///@}
 
     /// \name Required Public Functions from Heuristic
@@ -86,7 +86,7 @@ public:
     int GetFromToHeuristic(int from_id, int to_id) override;
     ///@}
 
-    int getBfsCostToGoal(int x, int y, int z) const;
+    virtual int getBfsCostToGoal(int x, int y, int z) const;
     inline int getCostPerCell(){ return m_cost_per_cell; }
 
     PointProjectionExtension* m_pp = nullptr;
