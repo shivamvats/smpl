@@ -149,7 +149,6 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
             possible_state[0] = possible_x;
             possible_state[1] = possible_y;
             possible_state[2] = possible_yaw;
-            ROS_ERROR("%f, %f, %f", possible_state[0], possible_state[1], possible_state[2] );
 
             if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
                 m_heuristic_base_poses.push_back(possible_state);
@@ -159,14 +158,12 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
                 break;
             }
         }
-        ROS_ERROR("%f, %f", m_heuristic_base_poses[0][0], m_heuristic_base_poses[0][1]);
         ROS_ERROR("2");
         grid()->worldToGrid(
                 m_heuristic_base_poses[0][0],
                 m_heuristic_base_poses[0][1],
                 0,
                 gx, gy, gz);
-        ROS_ERROR("Base: %d", grid()->getDistance(gx, gy, gz));
         //grid()->worldToGrid(
         //        goal_x,
         //        goal_y,
@@ -293,16 +290,16 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         else
             base_dist = dist_xyz_target;
 
-        //yaw_dist = m_cost_per_cell*fabs(robot_state[2] - m_heuristic_base_poses[0][2]);
+        yaw_dist = m_cost_per_cell*fabs(robot_state[2] - m_heuristic_base_poses[0][2]);
     } else {
         base_dist = 0;
     }
 
     //int arm_heur = 0.1*m_cost_per_cell*getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
-    int heuristic = base_dist;// + yaw_dist;// + arm_heur;
-    //SMPL_DEBUG_NAMED(LOG, "cost_per_cell: %d, base_dist: %f", m_cost_per_cell, base_dist);
+    int heuristic = base_dist + 2*yaw_dist;// + arm_heur;
+    SMPL_DEBUG_NAMED(LOG, "base_dist: %d, yaw_dist: %d", base_dist, yaw_dist);
     //int heuristic = m_cost_per_cell*base_dist;
-    SMPL_DEBUG_NAMED(LOG, "BfsFullbodyHeuristic value: %d ", heuristic );
+    //SMPL_DEBUG_NAMED(LOG, "BfsFullbodyHeuristic value: %d ", heuristic );
     return heuristic;
 }
 
