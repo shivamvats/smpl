@@ -38,7 +38,7 @@ BFS_2D::BFS_2D(int length, int width) :
 
     for (int node = 0; node < m_dim_xy; node++) {
         int x = node % m_dim_x;
-        int y = node / m_dim_y;
+        int y = node / m_dim_x;
         if (x == 0 || x == m_dim_x - 1 ||
             y == 0 || y == m_dim_y - 1)
         {
@@ -91,11 +91,11 @@ void BFS_2D::setGoalCells(std::vector<int>& xs, std::vector<int>& ys){
     }
 }
 
-#define EXPAND_NEIGHBOR(offset)                            \
-    if (m_distance_grid[currentNode + offset] < 0) {         \
-        m_queue[m_queue_tail++] = currentNode + offset;        \
-        m_distance_grid[currentNode + offset] = currentCost; \
-    }
+#define EXPAND_NEIGHBOR(offset)                                 \
+        if (m_distance_grid[currentNode + offset] < 0) {        \
+            m_queue[m_queue_tail++] = currentNode + offset;     \
+            m_distance_grid[currentNode + offset] = currentCost;\
+        }
 
 void BFS_2D::run(int x, int y)
 {
@@ -120,8 +120,9 @@ void BFS_2D::run(int x, int y)
         int currentNode = m_queue[m_queue_head++];
         int currentCost = m_distance_grid[currentNode] + 1;
 
-        for( int i=0; i<8; i++ )
+        for( int i=0; i<8; i++ ){
             EXPAND_NEIGHBOR(m_neighbor_offsets[i]);
+        }
     }
 }
 
