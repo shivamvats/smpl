@@ -213,7 +213,7 @@ void ManipLattice::GetSuccs(
 
     ManipLatticeState* parent_entry = m_states[state_id];
 
-    assert(parent_entry);
+    assert(parent_entry != nullptr);
     assert(parent_entry->coord.size() >= robot()->jointVariableCount());
 
     // log expanded state details
@@ -595,7 +595,8 @@ auto ManipLattice::computePlanningFrameFK(const RobotState& state) const
 
 // This cost function makes the planner minimize the number of actions (all
 // actions considered equivalent).
-int ManipLattice::cost(
+/*
+inline int ManipLattice::cost(
     ManipLatticeState* HashEntry1,
     ManipLatticeState* HashEntry2,
     bool bState2IsGoal) const
@@ -608,9 +609,17 @@ int ManipLattice::cost(
     W[0]*= 1;
     W[1]*= 1;
     W[2]*= 1;
-    int cost = DefaultCostMultiplier*euclideanDistance( start_state, end_state, W );
-    return cost;//DefaultCostMultiplier;
+    W[3]*= 1;
+    W[4]*= 1;
+    W[5]*= 1;
+    W[6]*= 2;
+    W[7]*= 2;
+    W[8]*= 2;
+    W[9]*= 2;
+    int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
+    return cost;
 }
+*/
 
 bool ManipLattice::checkAction(const RobotState& state, const Action& action)
 {
@@ -807,7 +816,12 @@ auto ManipLattice::getStateVisualization(
 
 bool ManipLattice::setStart(const RobotState& state)
 {
+    assert(state != NULL);
     SMPL_DEBUG_NAMED(G_LOG, "set the start state");
+    for(auto& val : state){
+        SMPL_DEBUG_NAMED(G_LOG, "%f, ", val);
+    }
+    SMPL_DEBUG_NAMED(G_LOG, "\n");
 
     if ((int)state.size() < robot()->jointVariableCount()) {
         SMPL_ERROR_NAMED(G_LOG, "start state does not contain enough joint positions");

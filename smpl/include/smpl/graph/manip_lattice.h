@@ -186,10 +186,10 @@ public:
 
     Affine3 computePlanningFrameFK(const RobotState& state) const;
 
-    int cost(
+    inline int cost(
         ManipLatticeState* HashEntry1,
         ManipLatticeState* HashEntry2,
-        bool bState2IsGoal) const;
+        bool bState2IsGoal) const { return 1000; }
 
     bool checkAction(const RobotState& state, const Action& action);
 
