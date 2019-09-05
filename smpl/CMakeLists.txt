@@ -156,6 +156,7 @@ set(SMPL_LIBRARY_SOURCES
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
     src/heuristic/bfs_3d_heuristic.cpp
+    src/heuristic/bfs_2d_heuristic.cpp
     src/heuristic/bfs_fullbody_heuristic.cpp
     src/heuristic/bfs_base_rot_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
