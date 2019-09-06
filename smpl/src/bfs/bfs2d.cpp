@@ -84,19 +84,6 @@ bool BFS_2D::isUndiscovered(int x, int y) const
     return m_distance_grid[node] == UNDISCOVERED;
 }
 
-void BFS_2D::setGoalCells(std::vector<int>& xs, std::vector<int>& ys){
-    assert(xs.size() == ys.size());
-    for(int i=0; i<xs.size(); i++){
-        m_distance_grid[getNode(xs[i], ys[i])] = 0;
-    }
-}
-
-#define EXPAND_NEIGHBOR(offset)                                 \
-        if (m_distance_grid[currentNode + offset] < 0) {        \
-            m_queue[m_queue_tail++] = currentNode + offset;     \
-            m_distance_grid[currentNode + offset] = currentCost;\
-        }
-
 void BFS_2D::run(int x, int y)
 {
     for (int i = 0; i < m_dim_xy; i++) {
@@ -116,113 +103,32 @@ void BFS_2D::run(int x, int y)
     // initialize starting distance
     m_distance_grid[origin] = 0;
 
+    auto sqrd_dist = [&](int a, int b){return (a-x)*(a-x) + (b-y)*(b-y);};
+
     while (m_queue_head < m_queue_tail) {
         int currentNode = m_queue[m_queue_head++];
         int currentCost = m_distance_grid[currentNode] + 1;
 
         for( int i=0; i<8; i++ ){
-            EXPAND_NEIGHBOR(m_neighbor_offsets[i]);
+            int childNode = currentNode + m_neighbor_offsets[i];
+            if (m_distance_grid[childNode] < 0) {
+                m_queue[m_queue_tail++] = childNode;
+                // Goal regions
+                // Circle of radius 0.6 m is considered part of goal region.
+                if(sqrd_dist(childNode%m_dim_x, childNode/m_dim_x) < 144)
+                    m_distance_grid[childNode] = 0;
+                else
+                    m_distance_grid[childNode] = currentCost;
+            }
         }
     }
 }
-
-#undef EXPAND_NEIGHBOR
 
 int BFS_2D::getDistance(int x, int y) const
 {
     int node = getNode(x, y);
     return m_distance_grid[node];
 }
-
-/*
-int BFS_2D::getNearestFreeNodeDist(int x, int y, int z)
-{
-    // initialize closed set and distances
-    m_closed.assign(m_dim_xyz, false);
-    m_distances.assign(m_dim_xyz, -1);
-
-    std::queue<std::tuple<int, int, int>> q;
-    q.push(std::make_tuple(x, y, z));
-
-    int n = getNode(x, y, z);
-    m_distances[n] = 0;
-
-    while (!q.empty()) {
-        std::tuple<int, int, int> ncoords = q.front();
-        q.pop();
-
-        // extract the coordinates of this cell
-        int nx = std::get<0>(ncoords);
-        int ny = std::get<1>(ncoords);
-        int nz = std::get<2>(ncoords);
-
-        // extract the index of this cell
-        n = getNode(nx, ny, nz);
-
-        // mark as visited
-        m_closed[n] = true;
-
-        int dist = m_distances[n];
-
-        // goal == found a free cell
-        if (!isWall(n)) {
-            int cell_dist = getDistance(nx, ny, nz);
-            if (cell_dist < 0) {
-                // TODO: mark as a wall, and move on
-                setWall(nx, ny, nz);
-                SMPL_INFO("Encountered isolated cell, m_running: %s", m_running ? "true" : "false");
-            }
-            else {
-                return dist + cell_dist;
-            }
-        }
-
-
-#define ADD_NEIGHBOR(xn, yn, zn) \
-{\
-if (inBounds(xn, yn, zn)) {\
-    int nn = getNode(xn, yn, zn);\
-    if (!m_closed[nn] && (m_distances[nn] == -1 || dist + 1 < m_distances[nn])) {\
-        m_distances[nn] = dist + 1;\
-        q.push(std::make_tuple(xn, yn, zn));\
-    }\
-}\
-}
-
-        ADD_NEIGHBOR(nx - 1, ny - 1, nz - 1);
-        ADD_NEIGHBOR(nx - 1, ny - 1, nz    );
-        ADD_NEIGHBOR(nx - 1, ny - 1, nz + 1);
-        ADD_NEIGHBOR(nx - 1, ny,     nz - 1);
-        ADD_NEIGHBOR(nx - 1, ny,     nz    );
-        ADD_NEIGHBOR(nx - 1, ny,     nz + 1);
-        ADD_NEIGHBOR(nx - 1, ny + 1, nz - 1);
-        ADD_NEIGHBOR(nx - 1, ny + 1, nz    );
-        ADD_NEIGHBOR(nx - 1, ny + 1, nz + 1);
-        ADD_NEIGHBOR(nx    , ny - 1, nz - 1);
-        ADD_NEIGHBOR(nx    , ny - 1, nz    );
-        ADD_NEIGHBOR(nx    , ny - 1, nz + 1);
-        ADD_NEIGHBOR(nx    , ny,     nz - 1);
-//            ADD_NEIGHBOR(nx    , ny,     nz    );
-        ADD_NEIGHBOR(nx    , ny,     nz + 1);
-        ADD_NEIGHBOR(nx    , ny + 1, nz - 1);
-        ADD_NEIGHBOR(nx    , ny + 1, nz    );
-        ADD_NEIGHBOR(nx    , ny + 1, nz + 1);
-        ADD_NEIGHBOR(nx + 1, ny - 1, nz - 1);
-        ADD_NEIGHBOR(nx + 1, ny - 1, nz    );
-        ADD_NEIGHBOR(nx + 1, ny - 1, nz + 1);
-        ADD_NEIGHBOR(nx + 1, ny,     nz - 1);
-        ADD_NEIGHBOR(nx + 1, ny,     nz    );
-        ADD_NEIGHBOR(nx + 1, ny,     nz + 1);
-        ADD_NEIGHBOR(nx + 1, ny + 1, nz - 1);
-        ADD_NEIGHBOR(nx + 1, ny + 1, nz    );
-        ADD_NEIGHBOR(nx + 1, ny + 1, nz + 1);
-#undef ADD_NEIGHBOR
-    }
-
-    fprintf(stderr, "Found no free neighbor\n");
-    return -1;
-}
-*/
 
 int BFS_2D::countWalls() const
 {
