@@ -129,6 +129,7 @@ set(SMPL_LIBRARY_SOURCES
     src/robot_model.cpp
     src/bfs/bfs3d.cpp
     src/bfs/bfs2d.cpp
+    src/bfs/bfs3d_base.cpp
     src/debug/colors.cpp
     src/debug/marker_utils.cpp
     src/debug/visualize.cpp
