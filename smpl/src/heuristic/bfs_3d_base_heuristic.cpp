@@ -57,6 +57,7 @@ void Bfs3DBaseHeuristic::setCostPerCell(int cost_per_cell)
 
 void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
 {
+    ROS_ERROR("Goal type: %d", static_cast<int>(goal.type));
     m_goal = goal;
     syncGridAndBfs();
     switch (goal.type) {
@@ -129,6 +130,7 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
             break;
         }
 
+        SMPL_DEBUG_NAMED(LOG, "BFS3DBase: %d, %d, %d", gx, gy, gtheta);
         m_bfs_3d_base->run(gx, gy, gtheta);
         break;
     }
@@ -146,13 +148,13 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
 
 double Bfs3DBaseHeuristic::getMetricStartDistance(double x, double y, double z)
 {
-    SMPL_ERROR("Unsupported goal type in BFS Heuristic");
+    SMPL_ERROR("Unsupported function in BFS Heuristic");
     return 0.0;
 }
 
 double Bfs3DBaseHeuristic::getMetricGoalDistance(double x, double y, double z)
 {
-    SMPL_ERROR("Unsupported goal type in BFS Heuristic");
+    SMPL_ERROR("Unsupported function in BFS Heuristic");
     return 0.0;
 }
 
@@ -188,7 +190,9 @@ int Bfs3DBaseHeuristic::GetGoalHeuristic(int state_id)
         int robot_grid[3];
         grid()->worldToGrid( robot_state[0], robot_state[1], 0,
                 robot_grid[0], robot_grid[1], robot_grid[2] );
-        //heuristic = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1]);
+        int gtheta = normalize_angle_positive(robot_state[2]) / 6.28 * m_thetac;
+        heuristic = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1], gtheta);
+        SMPL_DEBUG_NAMED(LOG, "x= %d, y=%d, theta= %d : %d", robot_grid[0], robot_grid[1], gtheta, heuristic);
 
     } else {
         heuristic = 0;
@@ -227,13 +231,14 @@ void Bfs3DBaseHeuristic::syncGridAndBfs()
 
     for (int x = 0; x < xc; ++x) {
     for (int y = 0; y < yc; ++y) {
-        double min_dist = std::numeric_limits<double>::max();
-        for (int z = 0; z < zc; ++z) {
-            if( z < projection_cell_thresh ){
-                //Project occupancy grid up till a height of projection_thresh.
-                min_dist = std::min(min_dist,  grid()->getDistance(x, y, z) );
-            }
-        }
+        //double min_dist = std::numeric_limits<double>::max();
+        //for (int z = 0; z < zc; ++z) {
+        //    if( z < projection_cell_thresh ){
+        //        //Project occupancy grid up till a height of projection_thresh.
+        //        min_dist = std::min(min_dist,  grid()->getDistance(x, y, z) );
+        //    }
+        //}
+        double min_dist = grid()->getDistance(x, y, 10);
         if(min_dist <= m_inflation_radius)
             for(int th=0; th<m_thetac; ++th){
                 m_bfs_3d_base->setWall(x, y, th);
@@ -247,14 +252,67 @@ void Bfs3DBaseHeuristic::syncGridAndBfs()
 
 int Bfs3DBaseHeuristic::getBfsCostToGoal(int x, int y, int theta) const {
     if (!m_bfs_3d_base->inBounds(x, y, theta)) {
+        SMPL_DEBUG_NAMED(LOG, "Bfs3DHeuristic: Out of bounds.");
         return Infinity;
     }
     else if (m_bfs_3d_base->getDistance(x, y, theta) == BFS_3D_Base::WALL) {
+        SMPL_DEBUG_NAMED(LOG, "Bfs3DHeuristic: Wall.");
         return Infinity;
     }
     else {
         return m_bfs_3d_base->getDistance(x, y, theta);
     }
+}
+
+auto Bfs3DBaseHeuristic::getValuesVisualization() -> visual::Marker {
+    std::vector<Vector3> voxels;
+    const int xc = grid()->numCellsX();
+    const int yc = grid()->numCellsY();
+
+    int start_heur = GetGoalHeuristic(planningSpace()->getStartStateID());
+    if (start_heur == Infinity) {
+        return visual::MakeEmptyMarker();
+    }
+
+    SMPL_INFO("Start cell heuristic: %d", start_heur);
+
+    const int max_cost = (int)(1.1 * start_heur);
+    SMPL_INFO("Get visualization of cells up to cost %d", max_cost);
+
+    std::vector<visual::Color> colors;
+
+    for(int i=0 ; i<xc; i++)
+        for(int j=0; j<yc; j++){
+            Vector3 p;
+            grid()->gridToWorld(i, j, 0, p.x(), p.y(), p.z());
+            voxels.push_back(p);
+
+            double cost_pct = (double)(m_cost_per_cell*getBfsCostToGoal(i, j, 1)) / (double)max_cost;
+
+            visual::Color color = visual::MakeColorHSV(300.0 - 300.0 * cost_pct);
+
+            auto clamp = [](double d, double lo, double hi) {
+                if (d < lo) {
+                    return lo;
+                } else if (d > hi) {
+                    return hi;
+                } else {
+                    return d;
+                }
+            };
+            color.r = clamp(color.r, 0.0f, 1.0f);
+            color.g = clamp(color.g, 0.0f, 1.0f);
+            color.b = clamp(color.b, 0.0f, 1.0f);
+            color.a = 1.0f;
+            colors.push_back(color);
+        }
+
+    return visual::MakeCubesMarker(
+            std::move(voxels),
+            0.5 * grid()->resolution(),
+            std::move(colors),
+            grid()->getReferenceFrame(),
+            "bfs3d_base_values");
 }
 
 } // namespace smpl
