@@ -4,6 +4,7 @@
 #include "robot_heuristic.h"
 #include "bfs_2d_heuristic.h"
 #include "bfs_3d_heuristic.h"
+#include "bfs_3d_base_heuristic.h"
 
 //namespace smpl {
 struct MotherHeuristic : public smpl::RobotHeuristic {
@@ -24,24 +25,24 @@ struct MotherHeuristic : public smpl::RobotHeuristic {
 
 struct BfsHeuristic : public MotherHeuristic {
 
-    inline bool init( std::shared_ptr<smpl::Bfs2DHeuristic> _bfs_2d,
+    inline bool init( std::shared_ptr<smpl::Bfs3DBaseHeuristic> _bfs_3d_base,
             std::shared_ptr<smpl::Bfs3DHeuristic> _bfs_3d ){
-        bfs_2d = _bfs_2d;
+        bfs_3d_base = _bfs_3d_base;
         bfs_3d = _bfs_3d;
         return true;
     }
 
     inline void updateGoal(const smpl::GoalConstraint& _goal) override {
-        if(areClose(_goal.pose, bfs_2d->getGoal().pose) &&
+        if(areClose(_goal.pose, bfs_3d_base->getGoal().pose) &&
                 areClose(_goal.pose, bfs_3d->getGoal().pose))
             return;
         ROS_WARN("Updating Goal in BfsHeuristic");
         goal = _goal;
-        bfs_2d->updateGoal(_goal);
+        bfs_3d_base->updateGoal(_goal);
         bfs_3d->updateGoal(_goal);
     }
 
-    std::shared_ptr<smpl::Bfs2DHeuristic> bfs_2d;
+    std::shared_ptr<smpl::Bfs3DBaseHeuristic> bfs_3d_base;
     std::shared_ptr<smpl::Bfs3DHeuristic> bfs_3d;
     smpl::GoalConstraint goal;
 
