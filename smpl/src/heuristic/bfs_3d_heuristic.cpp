@@ -81,6 +81,7 @@ void Bfs3DHeuristic::setCostPerCell(int cost_per_cell)
 
 void Bfs3DHeuristic::updateGoal(const GoalConstraint& goal)
 {
+    m_goal = goal;
     syncGridAndBfs();
     switch (goal.type) {
     case GoalType::XYZ_GOAL:

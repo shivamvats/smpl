@@ -11,6 +11,7 @@
 #include <smpl/graph/manip_lattice.h>
 #include <smpl/heuristic/bfs_2d_heuristic.h>
 #include <smpl/angles.h>
+#include <smpl/debug/visualize.h>
 
 #define PI 3.14
 
@@ -56,6 +57,8 @@ void Bfs2DHeuristic::setCostPerCell(int cost_per_cell)
 
 void Bfs2DHeuristic::updateGoal(const GoalConstraint& goal)
 {
+    ROS_ERROR("Goal type: %d", static_cast<int>(goal.type));
+    m_goal = goal;
     syncGridAndBfs();
     switch (goal.type) {
     case GoalType::XYZ_GOAL:
@@ -130,12 +133,12 @@ void Bfs2DHeuristic::updateGoal(const GoalConstraint& goal)
     }
     case GoalType::MULTIPLE_POSE_GOAL:
     {
-        SMPL_ERROR("Unsupported goal type in BFS Heuristic");
+        SMPL_ERROR("Unsupported function in BFS Heuristic");
         break;
     }
     case GoalType::USER_GOAL_CONSTRAINT_FN:
     default:
-        SMPL_ERROR("Unsupported goal type in BFS Heuristic");
+        SMPL_ERROR("Unsupported function in BFS Heuristic");
         break;
     }
 }
@@ -200,16 +203,12 @@ int Bfs2DHeuristic::GetGoalHeuristic(int state_id)
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
     int heuristic = 0;
     if( state_id != 0 ) {
+        SV_SHOW_INFO_ONCE_NAMED(LOG, getValuesVisualization());
         auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
         int robot_grid[3];
         grid()->worldToGrid( robot_state[0], robot_state[1], 0,
                 robot_grid[0], robot_grid[1], robot_grid[2] );
         heuristic = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1]);
-
-        //if(dist < 0.5)
-        //    return 0;
-        //else
-        //    base_dist = dist_xyz_target;
 
     } else {
         heuristic = 0;
@@ -299,13 +298,14 @@ void Bfs2DHeuristic::syncGridAndBfs()
 
     for (int x = 0; x < xc; ++x) {
     for (int y = 0; y < yc; ++y) {
-        double min_dist = std::numeric_limits<double>::max();
-        for (int z = 0; z < zc; ++z) {
-            if( z < projection_cell_thresh ){
+        //double min_dist = std::numeric_limits<double>::max();
+        //for (int z = 0; z < zc; ++z) {
+            //if( z < projection_cell_thresh ){
                 //Project occupancy grid up till a height of projection_thresh.
-                min_dist = std::min(min_dist,  grid()->getDistance(x, y, z) );
-            }
-        }
+                //min_dist = std::min(min_dist,  grid()->getDistance(x, y, z) );
+            //}
+        //}
+        double min_dist = grid()->getDistance(x, y, 10);
         if(min_dist <= m_inflation_radius)
             m_bfs_2d->setWall(x, y);
             ++wall_count;

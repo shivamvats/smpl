@@ -63,6 +63,8 @@ public:
     auto getWallsVisualization() const -> visual::Marker;
     auto getValuesVisualization() -> visual::Marker;
 
+    inline GoalConstraint getGoal(){return m_goal;}
+
     /// \name Required Public Functions from RobotHeuristic
     ///@{
     double getMetricStartDistance(double x, double y, double z) override;
@@ -93,6 +95,7 @@ public:
 private:
 
     const OccupancyGrid* m_grid = nullptr;
+    GoalConstraint m_goal;
 
     std::unique_ptr<BFS_3D> m_bfs;
 
