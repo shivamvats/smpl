@@ -110,6 +110,7 @@ private:
 
     ForwardKinematicsInterface* m_fk_iface = nullptr;
     InverseKinematicsInterface* m_ik_iface = nullptr;
+    ManipLattice* m_manip_lattice = nullptr;
 
     bool m_mprim_enabled[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];
     double m_mprim_thresh[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];

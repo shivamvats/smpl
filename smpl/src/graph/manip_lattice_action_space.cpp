@@ -71,6 +71,8 @@ bool ManipLatticeActionSpace::init(ManipLattice* space)
         SMPL_WARN("Manip Lattice Action Set recommends Inverse Kinematics Interface");
     }
 
+    m_manip_lattice = dynamic_cast<ManipLattice*>(space);
+
     useMultipleIkSolutions(false);
     useAmp(MotionPrimitive::SNAP_TO_XYZ, false);
     useAmp(MotionPrimitive::SNAP_TO_RPY, false);
@@ -356,7 +358,6 @@ bool ManipLatticeActionSpace::getAction(
     if (!mprimActive(start_dist, goal_dist, mp.type)) {
         return false;
     }
-
     GoalType goal_type = planningSpace()->goal().type;
     auto& goal_pose = planningSpace()->goal().pose;
 
@@ -418,22 +419,74 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
     const MotionPrimitive& mp,
     Action& action)
 {
+    RobotCoord coords(state.size(), 0);
+    m_manip_lattice->stateToCoord(state, coords);
     action = mp.action;
-    for (size_t i = 0; i < action.size(); ++i) {
+
+    for(size_t i=0; i<action.size(); i++){
         if (action[i].size() != state.size()) {
+            ROS_ERROR("WTF");
             return false;
         }
+        /*
+        if( fabs(action[i][0]) > 0.001 ){
+            ROS_ERROR("Coords[2]: %d", coords[2]);
+            ROS_ERROR("Before actions[i]: %f, %f", action[i][0], action[i][1]);
+            double mult = action[i][0];
+
+            if( (coords[2] == 0) || (coords[2] == 8) ){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1];
+            }
+            else if((coords[2] == 4) || (coords[2] == 12)){
+                action[i][0] = state[0];
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 2) || (coords[2] == 10)){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 6) || (coords[2] == 14)){
+                action[i][0] = state[0] - mult;
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 1) || (coords[2] == 9)){
+                action[i][0] = state[0] + 2*mult;
+                action[i][1] = state[1] + 1*mult;
+            }
+            else if((coords[2] == 3) || (coords[2] == 11)){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1] + 2*mult;
+            }
+            else if((coords[2] == 5) || (coords[2] == 13)){
+                action[i][0] = state[0] - mult;
+                action[i][1] = state[1] + 2*mult;
+            }
+            else if((coords[2] == 7) || (coords[2] == 15)){
+                action[i][0] = state[0] - 2*mult;
+                action[i][1] = state[1] + mult;
+            }
+            else{
+                ROS_ERROR("WTF! Angles not understood.");
+            }
+            ROS_ERROR("After actions[i]: %f, %f", action[i][0], action[i][1]);
+        }
+        if(action[i][2] > 0)
+            ROS_ERROR("Rotating in place");
+        */
 
         double theta;
         theta = state[2];
-        auto r = action[i][0];
+        auto r = action[i][0]*1.414;
         // Resolve global x component.
         action[i][0] = cos(theta)*r + state[0];
         action[i][1] = sin(theta)*r + state[1];
+
         for (size_t j = 2; j < action[i].size(); ++j) {
             action[i][j] = action[i][j] + state[j];
         }
     }
+
     return true;
 }
 
@@ -588,7 +641,7 @@ bool ManipLatticeMultiActionSpace::load( RepId rep_id, const std::string& action
         if (i < (nrows - short_mprims)) {
             addMotionPrim(rep_id, mprim, false);
         } else {
-            addMotionPrim(rep_id, mprim, true);
+            addMotionPrim(rep_id, mprim, false);
         }
     }
 
