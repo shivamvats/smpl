@@ -132,6 +132,46 @@ void BFS_3D_Base::run(int x, int y, int z)
     m_running = true;
 }
 
+std::vector<BFS_3D_Base::BaseState> BFS_3D_Base::getPath(int x, int y, int z){
+    std::vector<BaseState> path;
+    int currentNode = getNode(x, y, z);
+    int bestPred = currentNode;
+    while(m_distance_grid[currentNode] != 0){
+        int x = currentNode % m_dim_x - 1;
+        int y = currentNode / m_dim_x % m_dim_y - 1;
+        int z = currentNode / m_dim_xy - 1;
+        // rotate
+        auto updatedPred = [&](int node, int bestPred){
+            if( (m_distance_grid[node] >= 0) && (m_distance_grid[node] < m_distance_grid[bestPred]) ){
+                return node;
+            }
+            else
+                return bestPred;
+        };
+
+        bestPred = updatedPred(getNode(x, y, z+1), bestPred);
+        bestPred = updatedPred(getNode(x, y, z-1), bestPred);
+
+        int quarter_z = (m_dim_z - 2)/4;
+        if( z == 0 || z == (2*quarter_z) ){
+            bestPred = updatedPred(getNode(x+1, y, z), bestPred);
+            bestPred = updatedPred(getNode(x-1, y, z), bestPred);
+        } else if( z == quarter_z || z == (3*quarter_z)){
+            bestPred = updatedPred(getNode(x, y+1, z), bestPred);
+            bestPred = updatedPred(getNode(x, y-1, z), bestPred);
+        }
+
+        currentNode = bestPred;
+
+        x = currentNode % m_dim_x - 1;
+        y = currentNode / m_dim_x % m_dim_y - 1;
+        z = currentNode / m_dim_xy - 1;
+        BaseState s = {x, y, z};
+        path.push_back(s);
+    }
+    return path;
+}
+
 template <typename Visitor>
 void BFS_3D_Base::visit_free_cells(int node, const Visitor& visitor)
 {
@@ -166,13 +206,6 @@ void BFS_3D_Base::visit_free_cells(int node, const Visitor& visitor)
             }
         }
     }
-}
-
-int BFS_3D_Base::getDistance(int x, int y, int z) const
-{
-    int node = getNode(x, y, z);
-    while (m_running && m_distance_grid[node] < 0);
-    return m_distance_grid[node];
 }
 
 int BFS_3D_Base::getNearestFreeNodeDist(int x, int y, int z)
@@ -333,7 +366,7 @@ void BFS_3D_Base::search(
                 distance_grid[getNode(x - 1, y, z)] = currentCost;
             }
         }
-        if( z == (quarter_z - 1 ) || z == (3*quarter_z)){
+        if( z == quarter_z || z == (3*quarter_z)){
             if (distance_grid[getNode(x, y+1, z)] < 0) {
                 queue[queue_tail++] = getNode(x, y+1, z);
                 distance_grid[getNode(x, y+1, z)] = currentCost;

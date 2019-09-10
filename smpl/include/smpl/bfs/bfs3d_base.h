@@ -25,6 +25,9 @@ public:
 
     void run(int x, int y, int z);
 
+    using BaseState = std::array<int, 3>;
+    std::vector<BaseState> getPath(int x, int y, int z);
+
     /// \brief Run the BFS starting from a variable number of cells
     template <typename InputIt>
     void run(InputIt cells_begin, InputIt cells_end);
@@ -35,7 +38,11 @@ public:
     ///
     /// This function is blocking if the BFS is running in parallel and a value
     /// has not yet been computed for this cell.
-    int getDistance(int x, int y, int z) const;
+    inline int getDistance(int x, int y, int z) const{
+        int node = getNode(x, y, z);
+        while (m_running && m_distance_grid[node] < 0);
+        return m_distance_grid[node];
+    }
 
     /// \brief Return whether this cell has been discovered.
     ///
