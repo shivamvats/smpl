@@ -115,6 +115,8 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
         m_bfs_3d->run(gx, gy, gz);
 
+        // When planning for the right hand, walker's base yaw must be at 90
+        // degrees at the goal. Hence, sample base positions around that region.
         auto goal_pose = goal.pose;
         double goal_x = goal_pose.translation()[0];
         double goal_y = goal_pose.translation()[1];
@@ -122,7 +124,6 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
         double r, p, ya;
         smpl::angles::get_euler_zyx(rot, ya, p, r);
-        ROS_ERROR("Yaw: %f", ya);
 
         double base_x=0, base_y=0;
         double arm_length = 0.55;
@@ -134,13 +135,8 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
 
         double theta_opt = PI/2 + ya;
         double theta = theta_opt;
-        for (int i=0; i<1000; i++) {
+        for (int i=0; i<1500; i++) {
             delta += increment;
-            // Explore symmetrically about the optimal theta.
-            if(i%2)
-                theta = theta_opt + delta;
-            else
-                theta = theta_opt - delta;
             double possible_x = goal_x + arm_length*cos(theta);
             double possible_y = goal_y + arm_length*sin(theta);
             double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
@@ -157,18 +153,19 @@ void BfsFullbodyHeuristic::updateGoal(const GoalConstraint& goal)
                 ROS_INFO("Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
                 break;
             }
+            // Explore symmetrically about the optimal theta.
+            if(i%2)
+                theta = theta_opt + delta;
+            else
+                theta = theta_opt - delta;
         }
-        ROS_ERROR("2");
+        if(!m_heuristic_base_poses.size())
+            throw "No base position found.";
         grid()->worldToGrid(
                 m_heuristic_base_poses[0][0],
                 m_heuristic_base_poses[0][1],
                 0,
                 gx, gy, gz);
-        //grid()->worldToGrid(
-        //        goal_x,
-        //        goal_y,
-        //        0,
-        //        gx, gy, gz);
 
         if (!m_bfs_2d->inBounds(gx, gy)) {
             SMPL_ERROR_NAMED(LOG, "Base goal is out of BFS bounds");
@@ -259,8 +256,9 @@ Extension* BfsFullbodyHeuristic::getExtension(size_t class_code)
 
 // 1. Find a reasonable base position near the goal
 // 2. Compute 2D distance between robot state's base and target base.
-// 3. Add 3D BFS distance between end-effector and goal xyz.
-// 4. (Optional) Add Euclidean distance for rpy.
+// 3. Yaw dist bw base yaw and target base yaw.
+//(NOT YET)// 4. Add 3D BFS distance between end-effector and goal xyz.
+// 5. (Optional) Add Euclidean distance for rpy.
 int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
 {
     if (m_pp == NULL) {
@@ -290,13 +288,13 @@ int BfsFullbodyHeuristic::GetGoalHeuristic(int state_id)
         else
             base_dist = dist_xyz_target;
 
-        yaw_dist = m_cost_per_cell*fabs(robot_state[2] - m_heuristic_base_poses[0][2]);
+        yaw_dist = m_cost_per_cell*fabs(shortest_angle_dist(robot_state[2], m_heuristic_base_poses[0][2]));
     } else {
         base_dist = 0;
     }
 
     //int arm_heur = 0.1*m_cost_per_cell*getBfsCostToGoal(*m_bfs_3d, dp.x(), dp.y(), dp.z());
-    int heuristic = base_dist + 2*yaw_dist;// + arm_heur;
+    int heuristic = base_dist + 3*yaw_dist;// + arm_heur;
     SMPL_DEBUG_NAMED(LOG, "base_dist: %d, yaw_dist: %d", base_dist, yaw_dist);
     //int heuristic = m_cost_per_cell*base_dist;
     //SMPL_DEBUG_NAMED(LOG, "BfsFullbodyHeuristic value: %d ", heuristic );

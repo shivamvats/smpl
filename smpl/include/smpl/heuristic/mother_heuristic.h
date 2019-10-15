@@ -36,7 +36,6 @@ struct BfsHeuristic : public MotherHeuristic {
         if(areClose(_goal.pose, bfs_3d_base->getGoal().pose) &&
                 areClose(_goal.pose, bfs_3d->getGoal().pose))
             return;
-        ROS_WARN("Updating Goal in BfsHeuristic");
         goal = _goal;
         bfs_3d_base->updateGoal(_goal);
         bfs_3d->updateGoal(_goal);
@@ -46,7 +45,7 @@ struct BfsHeuristic : public MotherHeuristic {
     std::shared_ptr<smpl::Bfs3DHeuristic> bfs_3d;
     smpl::GoalConstraint goal;
 
-    private:
+    protected:
 
     template <typename T>
     inline double euclidDist( const T* a, const T* b, unsigned int n ){

@@ -160,7 +160,7 @@ int ArmRetractHeuristic::GetGoalHeuristic(int state_id)
         //SMPL_DEBUG_NAMED(LOG, "h(%0.3f, %0.3f, %0.3f, %0.3f, %0.3f, %0.3f) = %d", p.translation()[0], p.translation()[1], p.translation()[2], Y, P, R, h);
         //angles::get_euler_zyx(target_pose.rotation(), Y, P, R);
         //SMPL_DEBUG_NAMED(LOG, "Target pose: Y, P, R: %0.3f, %0.3f, %0.3f", Y, P, R);
-        SMPL_ERROR("Arm Retract Heuristic: h(%f, %f, %f, %f, %f) = %d + %f",
+        SMPL_DEBUG_NAMED(LOG, "Arm Retract Heuristic: h(%f, %f, %f, %f, %f) = %d + %f",
                 target_state[3], target_state[4], target_state[5], target_state[6],
                 target_state[7], h, dist_to_goal);
         h += dist_to_goal;

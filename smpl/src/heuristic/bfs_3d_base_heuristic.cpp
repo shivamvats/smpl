@@ -57,7 +57,6 @@ void Bfs3DBaseHeuristic::setCostPerCell(int cost_per_cell)
 
 void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
 {
-    ROS_ERROR("Goal type: %d", static_cast<int>(goal.type));
     m_goal = goal;
     syncGridAndBfs();
     switch (goal.type) {
@@ -81,15 +80,50 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
         smpl::angles::get_euler_zyx(rot, ya, p, r);
 
         double base_x=0, base_y=0;
-        double arm_length = 0.55;
 
         double delta = 0;
         double increment = 0.005;
+        double arm_increment = 0.05;
 
         bool found_base = false;
 
         double theta_opt = PI/2 + ya;
         double theta = theta_opt;
+        m_heuristic_base_poses.clear();
+        for (int i=0; i<500; i++) {
+            delta += increment;
+            double arm_length = 0.45;
+        for(int j=0 ;j<3; j++){
+            arm_length += arm_increment;
+            double possible_x = goal_x + arm_length*cos(theta);
+            double possible_y = goal_y + arm_length*sin(theta);
+            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
+            RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
+            //SV_SHOW_INFO_NAMED("heur", dynamic_cast<smpl::collision::CollisionSpace*>(planningSpace()->collisionChecker())->getCollisionRobotVisualization(possible_base));
+            possible_state[0] = possible_x;
+            possible_state[1] = possible_y;
+            possible_state[2] = possible_yaw;
+
+            if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
+                m_heuristic_base_poses.push_back(possible_state);
+                found_base = true;
+                ROS_INFO("Success on Iteration: %d", i);
+                ROS_INFO("Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
+                break;
+            }
+            // Explore symmetrically about the optimal theta.
+            if(i%2)
+                theta = theta_opt + delta;
+            else
+                theta = theta_opt - delta;
+        }
+        if(found_base)
+            break;
+        }
+        if(!found_base){
+        double arm_length = 0.45;
+        for(int j=3 ;j<10; j++){
+            arm_length += arm_increment;
         for (int i=0; i<1500; i++) {
             delta += increment;
             double possible_x = goal_x + arm_length*cos(theta);
@@ -114,8 +148,15 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
             else
                 theta = theta_opt - delta;
         }
-        if(!m_heuristic_base_poses.size())
+        if(found_base)
+            break;
+        }
+        }
+
+        if(!m_heuristic_base_poses.size()){
+            ROS_ERROR("No base position found");
             throw "No base position found.";
+        }
         int gx, gy, gz;
         grid()->worldToGrid(
                 m_heuristic_base_poses[0][0],
@@ -192,6 +233,7 @@ int Bfs3DBaseHeuristic::GetGoalHeuristic(int state_id)
                 robot_grid[0], robot_grid[1], robot_grid[2] );
         int gtheta = normalize_angle_positive(robot_state[2]) / 6.28 * m_thetac;
         heuristic = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1], gtheta);
+        auto path = m_bfs_3d_base->getPath(robot_grid[0], robot_grid[1], gtheta);
         SMPL_DEBUG_NAMED(LOG, "x= %d, y=%d, theta= %d : %d", robot_grid[0], robot_grid[1], gtheta, heuristic);
 
     } else {
@@ -262,6 +304,24 @@ int Bfs3DBaseHeuristic::getBfsCostToGoal(int x, int y, int theta) const {
     else {
         return m_bfs_3d_base->getDistance(x, y, theta);
     }
+}
+
+std::vector< std::array<double, 3> > Bfs3DBaseHeuristic::getPath(int state_id){
+    auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
+    int robot_grid[3];
+    grid()->worldToGrid( robot_state[0], robot_state[1], 0,
+            robot_grid[0], robot_grid[1], robot_grid[2] );
+    int gtheta = normalize_angle_positive(robot_state[2]) / 6.28 * m_thetac;
+
+    auto grid_path = m_bfs_3d_base->getPath( robot_grid[0], robot_grid[1], gtheta );
+    std::vector< std::array<double, 3> > path;
+    for(const auto& grid_state : grid_path ){
+        std::array<double, 3> state;
+        grid()->gridToWorld(grid_state[0], grid_state[1], 0, state[0], state[1], state[2]);
+        state[2] = grid_state[2]*6.28/m_thetac;
+        path.push_back(state);
+    }
+    return path;
 }
 
 auto Bfs3DBaseHeuristic::getValuesVisualization() -> visual::Marker {

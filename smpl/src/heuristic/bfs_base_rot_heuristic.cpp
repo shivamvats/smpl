@@ -104,7 +104,7 @@ void BfsBaseRotHeuristic::updateGoal(const GoalConstraint& goal)
 
         double theta_opt = PI/2 + ya;
         double theta = theta_opt;
-        for (int i=0; i<1000; i++) {
+        for (int i=0; i<1500; i++) {
             delta += increment;
             // Explore symmetrically about the optimal theta.
             if(i%2)
@@ -128,18 +128,15 @@ void BfsBaseRotHeuristic::updateGoal(const GoalConstraint& goal)
                 break;
             }
         }
-        ROS_ERROR("2");
+        if(!found_base){
+            ROS_ERROR("No base pose found.");
+            throw "Could not find valid base pose at the goal.";
+        }
         grid()->worldToGrid(
                 m_heuristic_base_poses[0][0],
                 m_heuristic_base_poses[0][1],
                 0,
                 gx, gy, gz);
-        //grid()->worldToGrid(
-        //        goal_x,
-        //        goal_y,
-        //        0,
-        //        gx, gy, gz);
-
         if (!m_bfs_2d->inBounds(gx, gy)) {
             SMPL_ERROR_NAMED(LOG, "Base goal is out of BFS bounds");
             break;

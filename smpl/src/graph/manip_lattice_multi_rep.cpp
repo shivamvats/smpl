@@ -208,6 +208,7 @@ int ManipLatticeMultiRep::cost(
     auto& start_state = HashEntry1->state;
     auto& end_state = HashEntry2->state;
     auto DefaultCostMultiplier = 1000;
+    /**
     std::vector<double> W( start_state.size(), 1 );
     W[0]*= 10;
     W[1]*= 10;
@@ -220,7 +221,8 @@ int ManipLatticeMultiRep::cost(
     W[8]*= 20;
     W[9]*= 20;
     int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
-    return cost;
+    **/
+    return DefaultCostMultiplier;//cost;
 }
 
 bool ManipLatticeMultiRep::checkAction(const RobotState& state, const Action& action)

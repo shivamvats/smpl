@@ -81,15 +81,20 @@ void Bfs2DHeuristic::updateGoal(const GoalConstraint& goal)
         smpl::angles::get_euler_zyx(rot, ya, p, r);
 
         double base_x=0, base_y=0;
-        double arm_length = 0.55;
+        double arm_length = 0.45;
 
         double delta = 0;
         double increment = 0.005;
+        double arm_increment = 0.05;
 
         bool found_base = false;
 
         double theta_opt = PI/2 + ya;
         double theta = theta_opt;
+        m_heuristic_base_poses.clear();
+
+        for(int j=0 ;j<10; j++){
+            arm_length += arm_increment;
         for (int i=0; i<1500; i++) {
             delta += increment;
             double possible_x = goal_x + arm_length*cos(theta);
@@ -114,6 +119,8 @@ void Bfs2DHeuristic::updateGoal(const GoalConstraint& goal)
             else
                 theta = theta_opt - delta;
         }
+        }
+
         if(!m_heuristic_base_poses.size())
             throw "No base position found.";
         int gx, gy, gz;

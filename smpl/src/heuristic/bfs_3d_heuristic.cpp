@@ -63,6 +63,8 @@ bool Bfs3DHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid)
     m_pp = space->getExtension<PointProjectionExtension>();
     if (m_pp != NULL) {
         SMPL_INFO_NAMED(LOG, "Got Point Projection Extension!");
+    } else{
+        SMPL_ERROR("Bfs3DHeuristic: Could not get point projections.");
     }
     syncGridAndBfs();
 
@@ -155,6 +157,7 @@ double Bfs3DHeuristic::getMetricStartDistance(double x, double y, double z)
 
     Vector3 p;
     if (!m_pp->projectToPoint(planningSpace()->getStartStateID(), p)) {
+        SMPL_ERROR("Could not project to point: Bfs3DHeuristic");
         return 0.0;
     }
 
