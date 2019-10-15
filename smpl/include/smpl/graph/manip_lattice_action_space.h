@@ -40,6 +40,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 // system includes
 #include <boost/algorithm/string.hpp>
@@ -71,6 +72,7 @@ public:
         bool add_converse = true);
 
     virtual void clear();
+    void clearStats();
 
     const_iterator begin() const { return m_mprims.begin(); }
     const_iterator end() const { return m_mprims.end(); }
@@ -92,6 +94,11 @@ public:
     ///@{
     bool apply(const RobotState& parent, std::vector<Action>& actions) override;
     ///@}
+    bool apply(const RobotState& parent, std::vector<Action>& actions, std::vector<MotionPrimitive::Type>& types);
+
+    inline int getMprimComputations(const MotionPrimitive::Type t){
+        return m_mprim_computations[t];
+    }
 
     protected:
 
@@ -104,9 +111,10 @@ public:
     auto getStartGoalDistances(const RobotState& state)
         -> std::pair<double, double>;
 
-private:
+    private:
 
     std::vector<MotionPrimitive> m_mprims;
+    std::unordered_map<int, int> m_mprim_computations = { {0, 0 }, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
 
     ForwardKinematicsInterface* m_fk_iface = nullptr;
     InverseKinematicsInterface* m_ik_iface = nullptr;

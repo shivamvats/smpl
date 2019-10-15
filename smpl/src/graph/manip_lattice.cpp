@@ -73,7 +73,7 @@ bool ManipLattice::init(
     RobotModel* _robot,
     CollisionChecker* checker,
     const std::vector<double>& resolutions,
-    ActionSpace* actions)
+    ManipLatticeActionSpace* actions)
 {
     SMPL_DEBUG_NAMED(G_LOG, "Initialize Manip Lattice");
 
@@ -226,7 +226,9 @@ void ManipLattice::GetSuccs(
     int goal_succ_count = 0;
 
     std::vector<Action> actions;
-    if (!m_actions->apply(parent_entry->state, actions)) {
+    std::vector<MotionPrimitive::Type> mprim_types;
+    //if (!m_actions->apply(parent_entry->state, actions)) {
+    if (!m_actions->apply(parent_entry->state, actions, mprim_types)) {
         SMPL_WARN("Failed to get actions");
         return;
     }
@@ -241,11 +243,13 @@ void ManipLattice::GetSuccs(
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "    action %zu:", i);
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      waypoints: %zu", action.size());
 
+        m_mprim_evaluations[mprim_types[i]]++;
         if (!checkAction(parent_entry->state, action)) {
             continue;
         }
+        m_mprim_valid[mprim_types[i]]++;
 
-        // compute destination coords
+        // compute destination coord
         stateToCoord(action.back(), succ_coord);
 
         // get the successor
@@ -467,6 +471,10 @@ void ManipLattice::GetPreds(
     std::vector<int>* costs)
 {
     SMPL_WARN("GetPreds unimplemented");
+}
+
+int ManipLattice::getMprimComputations(MotionPrimitive::Type t){
+    return m_actions->getMprimComputations(t);
 }
 
 // angles are counterclockwise from 0 to 360 in radians, 0 is the center of bin
@@ -918,6 +926,12 @@ void ManipLattice::clearStates()
     m_states.shrink_to_fit();
 
     m_goal_state_id = reserveHashEntry();
+}
+
+void ManipLattice::clearStats(){
+    m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    m_actions->clearStats();
 }
 
 bool ManipLattice::extractPath(

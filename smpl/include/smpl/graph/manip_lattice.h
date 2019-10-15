@@ -52,7 +52,8 @@
 #include <smpl/robot_model.h>
 #include <smpl/types.h>
 #include <smpl/graph/robot_planning_space.h>
-#include <smpl/graph/action_space.h>
+#include <smpl/graph/manip_lattice_action_space.h>
+#include <smpl/graph/motion_primitive.h>
 
 namespace smpl {
 
@@ -88,6 +89,8 @@ struct hash<smpl::ManipLatticeState>
 
 namespace smpl {
 
+class ManipLatticeActionSpace;
+
 /// \class Discrete space constructed by expliciting discretizing each joint
 class ManipLattice :
     public RobotPlanningSpace,
@@ -102,11 +105,11 @@ public:
         RobotModel* robot,
         CollisionChecker* checker,
         const std::vector<double>& resolutions,
-        ActionSpace* actions);
+        ManipLatticeActionSpace* actions);
 
     auto resolutions() const -> const std::vector<double>& { return m_coord_deltas; }
-    auto actionSpace() -> ActionSpace* { return m_actions; }
-    auto actionSpace() const -> const ActionSpace* { return m_actions; }
+    auto actionSpace() -> ManipLatticeActionSpace* { return m_actions; }
+    auto actionSpace() const -> const ManipLatticeActionSpace* { return m_actions; }
 
     auto getStartConfiguration() const -> RobotState;
 
@@ -116,6 +119,7 @@ public:
     auto getDiscreteCenter(const RobotState& state) const -> RobotState;
 
     void clearStates();
+    void clearStats();
 
     /// \name Reimplemented Public Functions from RobotPlanningSpace
     ///@{
@@ -168,6 +172,16 @@ public:
     ///@}
 
     ManipLatticeState* getHashEntry(int state_id) const;
+
+    int getMprimComputations(MotionPrimitive::Type t);
+
+    int getMprimEvaluations(MotionPrimitive::Type t){
+        return m_mprim_evaluations[t];
+    }
+
+    int getMprimValid(MotionPrimitive::Type t){
+        return m_mprim_valid[t];
+    }
 
 //protected:
     public:
@@ -237,7 +251,10 @@ public:
 
     private:
 
-    ActionSpace* m_actions = nullptr;
+    ManipLatticeActionSpace* m_actions = nullptr;
+    std::unordered_map<int, int> m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    std::unordered_map<int, int> m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+
 };
 
 } // namespace smpl

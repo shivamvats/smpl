@@ -172,9 +172,9 @@ bool ManipLatticeActionSpace::load(const std::string& action_filename)
         }
 
         if (i < (nrows - short_mprims)) {
-            addMotionPrim(mprim, false);
+            addMotionPrim(mprim, false, false);
         } else {
-            addMotionPrim(mprim, true);
+            addMotionPrim(mprim, true, false);
         }
     }
 
@@ -333,6 +333,25 @@ auto ManipLatticeActionSpace::getStartGoalDistances(const RobotState& state)
 
 bool ManipLatticeActionSpace::apply(
     const RobotState& parent,
+    std::vector<Action>& actions,
+    std::vector<MotionPrimitive::Type>& types){
+    double goal_dist, start_dist;
+    std::tie(start_dist, goal_dist) = getStartGoalDistances(parent);
+
+    for (auto& prim : m_mprims) {
+        if(getAction(parent, goal_dist, start_dist, prim, actions))
+            types.push_back(prim.type);
+    }
+    assert(type.size() == actions.size());
+    if (actions.empty()) {
+        SMPL_WARN_ONCE("No motion primitives specified");
+    }
+
+    return true;
+}
+
+bool ManipLatticeActionSpace::apply(
+    const RobotState& parent,
     std::vector<Action>& actions)
 {
     double goal_dist, start_dist;
@@ -358,6 +377,8 @@ bool ManipLatticeActionSpace::getAction(
     if (!mprimActive(start_dist, goal_dist, mp.type)) {
         return false;
     }
+    m_mprim_computations[int(mp.type)]++;
+
     GoalType goal_type = planningSpace()->goal().type;
     auto& goal_pose = planningSpace()->goal().pose;
 
@@ -608,6 +629,7 @@ bool ManipLatticeMultiActionSpace::load( RepId rep_id, const std::string& action
         SMPL_ERROR("Parsed string has length < 1.");
         return false;
     }
+    SMPL_ERROR("Short mprims: %d", short_mprims);
 
     if (short_mprims == nrows) {
         SMPL_WARN("# of motion prims == # of short distance motion prims. No long distance motion prims set.");
@@ -639,9 +661,9 @@ bool ManipLatticeMultiActionSpace::load( RepId rep_id, const std::string& action
         }
 
         if (i < (nrows - short_mprims)) {
-            addMotionPrim(rep_id, mprim, false);
+            addMotionPrim(rep_id, mprim, false, false);
         } else {
-            addMotionPrim(rep_id, mprim, false);
+            addMotionPrim(rep_id, mprim, true, false);
         }
     }
 
@@ -689,6 +711,10 @@ void ManipLatticeMultiActionSpace::clear(){
     m_rep_mprims.clear();
 }
 
+void ManipLatticeActionSpace::clearStats(){
+    m_mprim_computations = { {0, 0 }, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+}
+
 bool ManipLatticeMultiActionSpace::apply(
         const RobotState& _parent,
         std::vector<Action>& _actions ){
@@ -707,6 +733,7 @@ bool ManipLatticeMultiActionSpace::apply(
         (void)getAction(_parent, goal_dist, start_dist, prim, _actions);
     }
 
+    /*
     MotionPrimitive mp;
     mp.type = MotionPrimitive::SNAP_TO_RPY;
     getAction(_parent, goal_dist, start_dist, mp, _actions);
@@ -714,6 +741,7 @@ bool ManipLatticeMultiActionSpace::apply(
     getAction(_parent, goal_dist, start_dist, mp, _actions);
     mp.type = MotionPrimitive::SNAP_TO_XYZ_RPY;
     getAction(_parent, goal_dist, start_dist, mp, _actions);
+    */
 
 
     if (_actions.empty()) {
