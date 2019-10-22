@@ -52,7 +52,7 @@
 #include <smpl/console/nonstd.h>
 #include <smpl/debug/visualize.h>
 #include <smpl/heuristic/bfs_heuristic.h>
-#include <smpl/heuristic/magic_arm_heuristic.h>
+//#include <smpl/heuristic/magic_arm_heuristic.h>
 #include <smpl/heuristic/bfs_fullbody_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
@@ -271,13 +271,6 @@ PlannerInterface::PlannerInterface(
         const PlanningParams& p)
     {
         return MakeBFSHeuristic(space, p, m_grid);
-    };
-
-    m_heuristic_factories["magic_arm"] = [this](
-        RobotPlanningSpace* space,
-        const PlanningParams& p)
-    {
-        return MakeMagicArmHeuristic(space, p, m_grid);
     };
 
     m_heuristic_factories["bfs_fullbody"] = [this](
