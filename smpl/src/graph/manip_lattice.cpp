@@ -665,6 +665,11 @@ bool ManipLattice::checkAction(const RobotState& state, const Action& action)
         return false;
     }
 
+    // Check if goal reached.
+    // If so, do not collision check.
+    if(isGoal(action[0]))
+        return true;
+
     // check for collisions along path from parent to first waypoint
     if (!collisionChecker()->isStateToStateValid(state, action[0])) {
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "        -> path to first waypoint in collision");
