@@ -76,6 +76,11 @@ using PlannerFactory = std::function<
         std::unique_ptr<SBPLPlanner>(
                 RobotPlanningSpace*, RobotHeuristic*, const PlanningParams&)>;
 
+using MHPlannerFactory = std::function<
+        std::unique_ptr<SBPLPlanner>(
+                RobotPlanningSpace*, std::vector<RobotHeuristic*>, const PlanningParams&)>;
+
+
 using GoalConstraints = std::vector<moveit_msgs::Constraints>;
 
 class PlannerInterface
@@ -141,6 +146,7 @@ public:
     ///@}
 
     std::map<std::string, std::unique_ptr<RobotHeuristic>> m_heuristics;
+    std::vector<RobotHeuristic*> m_heuristic_vector;
 
 protected:
 
@@ -152,12 +158,14 @@ protected:
 
     PlanningParams m_params;
 
+    int m_num_heuristics;
     // params
     bool m_initialized;
 
     std::map<std::string, PlanningSpaceFactory> m_space_factories;
     std::map<std::string, HeuristicFactory> m_heuristic_factories;
     std::map<std::string, PlannerFactory> m_planner_factories;
+    std::map<std::string, MHPlannerFactory> m_mh_planner_factories;
 
     // planner components
 

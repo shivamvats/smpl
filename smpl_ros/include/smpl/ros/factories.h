@@ -4,6 +4,7 @@
 // standard includes
 #include <memory>
 #include <string>
+#include <vector>
 
 class SBPLPlanner;
 
@@ -31,6 +32,16 @@ auto MakeManipLattice(
     const PlanningParams& params,
     const OccupancyGrid* grid)
     -> std::unique_ptr<RobotPlanningSpace>;
+
+/*
+auto MakeManipLatticeMultiRep(
+    RobotModel* robot,
+    CollisionChecker* checker,
+    const PlanningParams& params,
+    const OccupancyGrid* grid,
+    const int num_heuristics)
+    -> std::unique_ptr<RobotPlanningSpace>;
+*/
 
 auto MakeManipLatticeEGraph(
     RobotModel* robot,
@@ -98,6 +109,11 @@ auto MakeEuclidDiffHeuristic(
     const PlanningParams& params)
     -> std::unique_ptr<RobotHeuristic>;
 
+auto MakeArmRetractHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>;
+
 auto MakeEuclidFullbodyHeuristic(
     RobotPlanningSpace* space,
     const PlanningParams& params)
@@ -137,7 +153,13 @@ auto MakeAWAStar(
 
 auto MakeMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> heuristics,
+    const PlanningParams& params)
+    -> std::unique_ptr<SBPLPlanner>;
+
+auto MakeMRMHAStar(
+    RobotPlanningSpace* space,
+    std::vector<RobotHeuristic*> heuristic,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>;
 

@@ -32,7 +32,7 @@
 #include <smpl/heuristic/bfs_heuristic.h>
 
 // project includes
-#include <smpl/bfs3d/bfs3d.h>
+#include <smpl/bfs/bfs3d.h>
 #include <smpl/console/console.h>
 #include <smpl/debug/marker_utils.h>
 #include <smpl/debug/colors.h>
@@ -81,6 +81,7 @@ void BfsHeuristic::setCostPerCell(int cost_per_cell)
 
 void BfsHeuristic::updateGoal(const GoalConstraint& goal)
 {
+    syncGridAndBfs();
     switch (goal.type) {
     case GoalType::XYZ_GOAL:
     case GoalType::XYZ_RPY_GOAL:
@@ -203,7 +204,7 @@ int BfsHeuristic::GetGoalHeuristic(int state_id)
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
 
     int heuristic = getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
-    SMPL_DEBUG_NAMED(LOG, "Heuristic value: %d", heuristic);
+    SMPL_DEBUG_NAMED(LOG, "BFS Heuristic: h(%f, %f, %f) = %d", p.x(), p.y(), p.z(), heuristic);
     return heuristic;
 }
 
@@ -421,6 +422,10 @@ int BfsHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) const
     else {
         return m_cost_per_cell * bfs.getDistance(x, y, z);
     }
+}
+
+int BfsHeuristic::getBfsCostToGoal( int x, int y, int z ) const{
+    return getBfsCostToGoal( *m_bfs, x, y, z );
 }
 
 } // namespace smpl

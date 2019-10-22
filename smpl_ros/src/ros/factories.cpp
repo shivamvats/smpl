@@ -5,6 +5,7 @@
 #include <smpl/console/nonstd.h>
 #include <smpl/graph/adaptive_workspace_lattice.h>
 #include <smpl/graph/manip_lattice.h>
+#include <smpl/graph/manip_lattice_multi_rep.h>
 #include <smpl/graph/manip_lattice_action_space.h>
 #include <smpl/graph/manip_lattice_egraph.h>
 #include <smpl/graph/simple_workspace_lattice_action_space.h>
@@ -18,6 +19,7 @@
 #include <smpl/heuristic/euclid_dist_heuristic.h>
 #include <smpl/heuristic/euclid_diffdrive_heuristic.h>
 #include <smpl/heuristic/euclid_fullbody_heuristic.h>
+#include <smpl/heuristic/arm_retract_heuristic.h>
 #include <smpl/heuristic/generic_egraph_heuristic.h>
 #include <smpl/heuristic/joint_dist_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
@@ -28,6 +30,8 @@
 #include <smpl/search/awastar.h>
 #include <smpl/search/experience_graph_planner.h>
 #include <smpl/stl/memory.h>
+#include <sbpl/planners/mhaplanner.h>
+#include <sbpl/planners/mrmhaplanner.h>
 
 namespace smpl {
 
@@ -36,6 +40,7 @@ static const char* PI_LOGGER = "simple";
 struct ManipLatticeActionSpaceParams
 {
     std::string mprim_filename;
+    std::string mprim_filenames;
     bool use_multiple_ik_solutions = false;
     bool use_xyz_snap_mprim;
     bool use_rpy_snap_mprim;
@@ -57,6 +62,10 @@ bool GetManipLatticeActionSpaceParams(
     if (!pp.getParam("mprim_filename", params.mprim_filename)) {
         SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'mprim_filename' not found in planning params");
         return false;
+    }
+    if (!pp.getParam("mprim_filenames", params.mprim_filenames)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'mprim_filenames' not found in planning params");
+        //return false;
     }
 
     pp.param("use_multiple_ik_solutions", params.use_multiple_ik_solutions, false);
@@ -222,6 +231,147 @@ auto MakeManipLattice(
 
     return std::move(space);
 }
+
+/*
+auto MakeManipLatticeMultiRep(
+    RobotModel* robot,
+    CollisionChecker* checker,
+    const PlanningParams& params,
+    const OccupancyGrid* grid,
+    const int num_heuristics)
+    -> std::unique_ptr<RobotPlanningSpace>
+{
+    ////////////////
+    // Parameters //
+    ////////////////
+
+    auto resolutions = std::vector<double>(robot->jointVariableCount());
+
+    std::string disc_string;
+    if (!params.getParam("discretization", disc_string)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Parameter 'discretization' not found in planning params");
+        return nullptr;
+    }
+
+    auto disc = ParseMapFromString<double>(disc_string);
+    SMPL_DEBUG_NAMED(PI_LOGGER, "Parsed discretization for %zu joints", disc.size());
+
+    for (size_t vidx = 0; vidx < robot->jointVariableCount(); ++vidx) {
+        auto& vname = robot->getPlanningJoints()[vidx];
+        std::string joint_name, local_name;
+        if (IsMultiDOFJointVariable(vname, &joint_name, &local_name)) {
+            // adjust variable name if a variable of a multi-dof joint
+            auto mdof_vname = joint_name + "_" + local_name;
+            auto dit = disc.find(mdof_vname);
+            if (dit == end(disc)) {
+                SMPL_ERROR_NAMED(PI_LOGGER, "Discretization for variable '%s' not found in planning parameters", vname.c_str());
+                return nullptr;
+            }
+            resolutions[vidx] = dit->second;
+        } else {
+            auto dit = disc.find(vname);
+            if (dit == end(disc)) {
+                SMPL_ERROR_NAMED(PI_LOGGER, "Discretization for variable '%s' not found in planning parameters", vname.c_str());
+                return nullptr;
+            }
+            resolutions[vidx] = dit->second;
+        }
+
+        SMPL_DEBUG_NAMED(PI_LOGGER, "resolution(%s) = %0.3f", vname.c_str(), resolutions[vidx]);
+    }
+
+    ManipLatticeActionSpaceParams action_params;
+    if (!GetManipLatticeActionSpaceParams(action_params, params)) {
+        return nullptr;
+    }
+
+    ////////////////////
+    // Initialization //
+    ////////////////////
+
+    // helper struct to couple the lifetime of ManipLatticeMultiRep and
+    // ManipLatticeActionSpaces
+    struct SimpleManipLatticeMultiRep : public ManipLatticeMultiRep {
+        std::vector<ManipLatticeActionSpace> manip_action_spaces;
+    };
+
+    auto space = make_unique<SimpleManipLatticeMultiRep>();
+
+
+    for( int i=0; i<num_heuristics; i++ ){
+        auto manip_action_space = ManipLatticeActionSpace();
+        space->manip_action_spaces.push_back( manip_action_space );
+    }
+
+    std::vector<ActionSpace*> action_spaces;
+    for( auto& actions: space->manip_action_spaces ){
+        action_spaces.push_back( &actions );
+    }
+    if (!space->init(robot, checker, resolutions, action_spaces)) {
+        SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice");
+        return nullptr;
+    }
+
+    for( auto& action_space: space->manip_action_spaces ){
+        if( !action_space.init( space.get() ) ){
+            SMPL_ERROR_NAMED(PI_LOGGER, "Failed to initialize Manip Lattice Action Space");
+            return nullptr;
+        }
+    }
+
+    if (grid) {
+        space->setVisualizationFrameId(grid->getReferenceFrame());
+    }
+
+    std::stringstream ss(action_params.mprim_filenames);
+    std::vector<std::string> mprim_filenames;
+    std::string name;
+    while( ss.good() ){
+        std::getline( ss, name, ',' );
+        mprim_filenames.push_back(name);
+    }
+
+    for( int i=0; i<space->manip_action_spaces.size(); i++ ){
+        auto& actions = space->manip_action_spaces[i];
+        actions.useMultipleIkSolutions(action_params.use_multiple_ik_solutions);
+        actions.useAmp(MotionPrimitive::SNAP_TO_XYZ, action_params.use_xyz_snap_mprim);
+        actions.useAmp(MotionPrimitive::SNAP_TO_RPY, action_params.use_rpy_snap_mprim);
+        actions.useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.use_xyzrpy_snap_mprim);
+        actions.useAmp(MotionPrimitive::SHORT_DISTANCE, action_params.use_short_dist_mprims);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ, action_params.xyz_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_RPY, action_params.rpy_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY, action_params.xyzrpy_snap_thresh);
+        actions.ampThresh(MotionPrimitive::SHORT_DISTANCE, action_params.short_dist_mprims_thresh);
+
+        if (!actions.load(mprim_filenames[i])) {
+            SMPL_ERROR("Failed to load actions from file '%s'", name.c_str());
+            return nullptr;
+        }
+
+        SMPL_DEBUG_NAMED(PI_LOGGER, "Action Set:");
+        for (auto ait = actions.begin(); ait != actions.end(); ++ait) {
+            SMPL_DEBUG_NAMED(PI_LOGGER, "  type: %s", to_cstring(ait->type));
+            if (ait->type == MotionPrimitive::SNAP_TO_RPY) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_RPY));
+            } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_XYZ) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ));
+            } else if (ait->type == MotionPrimitive::SNAP_TO_XYZ_RPY) {
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    enabled: %s", actions.useAmp(MotionPrimitive::SNAP_TO_XYZ_RPY) ? "true" : "false");
+                SMPL_DEBUG_NAMED(PI_LOGGER, "    thresh: %0.3f", actions.ampThresh(MotionPrimitive::SNAP_TO_XYZ_RPY));
+            } else if (ait->type == MotionPrimitive::LONG_DISTANCE ||
+                ait->type == MotionPrimitive::SHORT_DISTANCE)
+            {
+                SMPL_DEBUG_STREAM_NAMED(PI_LOGGER, "    action: " << ait->action);
+            }
+        }
+    }
+    assert( mprim_filenames.size() == space->manip_action_spaces.size() && "Sufficient number of mprim files not found.");
+
+    return std::move(space);
+}
+*/
 
 auto MakeManipLatticeEGraph(
     RobotModel* robot,
@@ -609,6 +759,29 @@ auto MakeEuclidDiffHeuristic(
     return std::move(h);
 };
 
+auto MakeArmRetractHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>{
+    auto h = make_unique<ArmRetractHeuristic>();
+    if (!h->init(space)) {
+        return nullptr;
+    }
+
+    double wx, wy, wz, wr;
+    params.param("x_coeff", wx, 1.0);
+    params.param("y_coeff", wy, 1.0);
+    params.param("z_coeff", wz, 1.0);
+    params.param("rot_coeff", wr, 1.0);
+
+    h->setWeightX(wx);
+    h->setWeightY(wy);
+    h->setWeightZ(wz);
+    h->setWeightRot(wr);
+    return std::move(h);
+    }
+
+
 auto MakeEuclidFullbodyHeuristic(
     RobotPlanningSpace* space,
     const PlanningParams& params)
@@ -752,7 +925,7 @@ auto MakeAWAStar(
 
 auto MakeMHAStar(
     RobotPlanningSpace* space,
-    RobotHeuristic* heuristic,
+    std::vector<RobotHeuristic*> robot_heuristics,
     const PlanningParams& params)
     -> std::unique_ptr<SBPLPlanner>
 {
@@ -770,10 +943,54 @@ auto MakeMHAStar(
     };
 
     std::vector<Heuristic*> heuristics;
-    heuristics.push_back(heuristic);
+    for(auto& h: robot_heuristics)
+        heuristics.push_back(h);
 
     auto search = make_unique<MHAPlannerAdapter>(
-            space, heuristics[0], &heuristics[0], heuristics.size());
+            space, heuristics[0], &(heuristics[1]), heuristics.size()-1);
+
+    search->heuristics = std::move(heuristics);
+
+    double mha_eps;
+    params.param("epsilon_mha", mha_eps, 1.0);
+    search->set_initial_mha_eps(mha_eps);
+
+    double epsilon;
+    params.param("epsilon", epsilon, 1.0);
+    search->set_initialsolution_eps(epsilon);
+
+    bool search_mode;
+    params.param("search_mode", search_mode, false);
+    search->set_search_mode(search_mode);
+
+    return std::move(search);
+}
+
+auto MakeMRMHAStar(
+    RobotPlanningSpace* space,
+    std::vector<RobotHeuristic*> robot_heuristics,
+    const PlanningParams& params)
+    -> std::unique_ptr<SBPLPlanner>
+{
+    struct MRMHAPlannerAdapter : public MRMHAPlanner {
+        std::vector<Heuristic*> heuristics;
+
+        MRMHAPlannerAdapter(
+            DiscreteSpaceInformation* space,
+            Heuristic* anchor,
+            Heuristic** heurs,
+            int hcount)
+        :
+            MRMHAPlanner(space, anchor, heurs, hcount)
+        { }
+    };
+
+    std::vector<Heuristic*> heuristics;
+    for(auto& h: robot_heuristics)
+        heuristics.push_back(h);
+
+    auto search = make_unique<MRMHAPlannerAdapter>(
+            space, heuristics[0], &(heuristics[1]), heuristics.size()-1);
 
     search->heuristics = std::move(heuristics);
 

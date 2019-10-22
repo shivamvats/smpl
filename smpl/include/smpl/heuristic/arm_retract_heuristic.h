@@ -29,64 +29,67 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_ACTION_SPACE_H
-#define SMPL_ACTION_SPACE_H
+#ifndef SMPL_ARM_RETRACT_HEURISTIC_H
+#define SMPL_ARM_RETRACT_HEURISTIC_H
 
 // project includes
-#include <smpl/types.h>
+#include <smpl/heuristic/robot_heuristic.h>
+#include <smpl/graph/manip_lattice.h>
+#include <smpl/spatial.h>
 
 namespace smpl {
 
-using RepId = unsigned int;
-
-class RobotPlanningSpace;
-struct GoalConstraint;
-
-class ActionSpace
+class ArmRetractHeuristic : public RobotHeuristic
 {
 public:
 
-    virtual ~ActionSpace();
+    bool init(RobotPlanningSpace* space);
 
-    virtual bool init(RobotPlanningSpace* space);
+    void setWeightX(double wx);
+    void setWeightY(double wy);
+    void setWeightZ(double wz);
+    void setWeightRot(double wr);
 
-    auto planningSpace() -> RobotPlanningSpace* { return m_space; }
-    auto planningSpace() const -> const RobotPlanningSpace* { return m_space; }
+    /// \name Required Public Functions from RobotHeuristic
+    ///@{
+    double getMetricGoalDistance(double x, double y, double z) override;
+    double getMetricStartDistance(double x, double y, double z) override;
+    ///@}
 
-    /// \brief Return the set of actions available from a state.
-    ///
-    /// Each action consists of a sequence of waypoints from the source state
-    /// describing the approximate motion the robot will take to reach a
-    /// successor state. The sequence of waypoints need not contain the the
-    /// source state. The motion between waypoints will be checked via the set
-    /// CollisionChecker's isStateToStateValid function during a search.
-    virtual bool apply(const RobotState& parent, std::vector<Action>& actions) = 0;
+    /// \name Required Public Functions from Extension
+    ///@{
+    Extension* getExtension(size_t class_code) override;
+    ///@}
 
-    virtual void updateStart(const RobotState& state) { }
-    virtual void updateGoal(const GoalConstraint& goal) { }
+    /// \name Required Public Functions from Heuristic
+    ///@{
+    int GetGoalHeuristic(int state_id) override;
+    int GetStartHeuristic(int state_id) override;
+    int GetFromToHeuristic(int from_id, int to_id) override;
+    ///@}
 
 private:
 
-    RobotPlanningSpace* m_space = nullptr;
-};
+    static constexpr double FIXED_POINT_RATIO = 1000.0;
 
-class MultiActionSpace : virtual public ActionSpace {
-    public:
+    PoseProjectionExtension* m_pose_ext = nullptr;
+    PointProjectionExtension* m_point_ext = nullptr;
 
-    using ActionSpace::apply;
+    double m_x_coeff = 1.0;
+    double m_y_coeff = 1.0;
+    double m_z_coeff = 1.0;
+    double m_rot_coeff = 1.0;
 
-    MultiActionSpace(int _nreps) : m_nreps{_nreps} {}
+    Affine3 createPose(const std::vector<double>& pose) const;
+    Vector3 createPoint(const std::vector<double>& point) const;
 
-    virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
+    Affine3 createPose(
+        double x, double y, double z,
+        double Y, double P, double R) const;
 
-    inline int numReps() const {
-        return m_nreps;
-    }
+    double computeDistance(const Affine3& a, const Affine3& b) const;
 
-    private:
-
-    int m_nreps;
-
+    double computeDistance(const Vector3& u, const Vector3& v) const;
 };
 
 } // namespace smpl

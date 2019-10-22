@@ -40,6 +40,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 // system includes
 #include <boost/algorithm/string.hpp>
@@ -55,7 +56,7 @@ namespace smpl {
 
 class ManipLattice;
 
-class ManipLatticeActionSpace : public ActionSpace
+class ManipLatticeActionSpace : virtual public ActionSpace
 {
 public:
 
@@ -63,14 +64,15 @@ public:
 
     bool init(ManipLattice* space);
 
-    bool load(const std::string& action_filename);
+    virtual bool load(const std::string& action_filename);
 
-    void addMotionPrim(
+    virtual void addMotionPrim(
         const std::vector<double>& mprim,
         bool short_dist_mprim,
         bool add_converse = true);
 
-    void clear();
+    virtual void clear();
+    void clearStats();
 
     const_iterator begin() const { return m_mprims.begin(); }
     const_iterator end() const { return m_mprims.end(); }
@@ -92,13 +94,31 @@ public:
     ///@{
     bool apply(const RobotState& parent, std::vector<Action>& actions) override;
     ///@}
+    bool apply(const RobotState& parent, std::vector<Action>& actions, std::vector<MotionPrimitive::Type>& types);
 
-protected:
+    inline int getMprimComputations(const MotionPrimitive::Type t){
+        return m_mprim_computations[t];
+    }
+
+    protected:
+
+    virtual bool getAction(
+        const RobotState& parent,
+        double goal_dist,
+        double start_dist,
+        const MotionPrimitive& mp,
+        std::vector<Action>& actions);
+    auto getStartGoalDistances(const RobotState& state)
+        -> std::pair<double, double>;
+
+    private:
 
     std::vector<MotionPrimitive> m_mprims;
+    std::unordered_map<int, int> m_mprim_computations = { {0, 0 }, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
 
     ForwardKinematicsInterface* m_fk_iface = nullptr;
     InverseKinematicsInterface* m_ik_iface = nullptr;
+    ManipLattice* m_manip_lattice = nullptr;
 
     bool m_mprim_enabled[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];
     double m_mprim_thresh[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];
@@ -118,20 +138,41 @@ protected:
         ik_option::IkOption option,
         std::vector<Action>& actions);
 
-    virtual bool getAction(
-        const RobotState& parent,
-        double goal_dist,
-        double start_dist,
-        const MotionPrimitive& mp,
-        std::vector<Action>& actions);
-
     bool mprimActive(
         double start_dist,
         double goal_dist,
         MotionPrimitive::Type type) const;
 
-    auto getStartGoalDistances(const RobotState& state)
-        -> std::pair<double, double>;
+};
+
+} // namespace smpl
+
+namespace smpl {
+
+class ManipLatticeMultiActionSpace :
+        public MultiActionSpace, public ManipLatticeActionSpace {
+    public:
+
+    ManipLatticeMultiActionSpace(int _nreps) : MultiActionSpace(_nreps) {}
+    virtual bool init(ManipLattice* space);
+
+    virtual bool load(const std::string& action_filename) override;
+    bool load(RepId, const std::string& action_filename);
+    void addMotionPrim(
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse = true ) override;
+    void addMotionPrim(
+        RepId rep_id,
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse = true);
+    void clear() override;
+    bool apply(const RobotState& parent, std::vector<Action>& actions) override;
+    bool apply(RepId, const RobotState& parent, std::vector<Action>& actions) override;
+
+    private:
+    std::vector<std::vector<MotionPrimitive>> m_rep_mprims;
 };
 
 } // namespace smpl

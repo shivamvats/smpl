@@ -56,7 +56,9 @@ endforeach()
 
 find_package(Boost REQUIRED COMPONENTS filesystem program_options system)
 find_package(Eigen3 REQUIRED)
-find_package(sbpl REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "~/lolocal")
+find_package(sbpl REQUIRED config)
+MESSAGE(WARNING ${SBPL_INCLUDE_DIRS})
 #find_package(smpl_urdf_robot_model)
 #find_package(sbpl_kdl_robot_model)
 
@@ -125,7 +127,9 @@ set(SMPL_LIBRARY_SOURCES
     src/planning_params.cpp
     src/post_processing.cpp
     src/robot_model.cpp
-    src/bfs3d/bfs3d.cpp
+    src/bfs/bfs3d.cpp
+    src/bfs/bfs2d.cpp
+    src/bfs/bfs3d_base.cpp
     src/debug/colors.cpp
     src/debug/marker_utils.cpp
     src/debug/visualize.cpp
@@ -142,6 +146,7 @@ set(SMPL_LIBRARY_SOURCES
     src/graph/adaptive_workspace_lattice.cpp
     src/graph/experience_graph.cpp
     src/graph/manip_lattice.cpp
+    src/graph/manip_lattice_multi_rep.cpp
     src/graph/manip_lattice_egraph.cpp
     src/graph/manip_lattice_action_space.cpp
     src/graph/robot_planning_space.cpp
@@ -151,18 +156,25 @@ set(SMPL_LIBRARY_SOURCES
     src/graph/simple_workspace_lattice_action_space.cpp
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
+    src/heuristic/bfs_2d_heuristic.cpp
+    src/heuristic/bfs_3d_heuristic.cpp
+    src/heuristic/bfs_3d_base_heuristic.cpp
     src/heuristic/bfs_fullbody_heuristic.cpp
-    src/heuristic/magic_arm_heuristic.cpp
+    #src/heuristic/magic_arm_heuristic.cpp
+    #src/heuristic/bfs_base_rot_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
     src/heuristic/generic_egraph_heuristic.cpp
     src/heuristic/euclid_dist_heuristic.cpp
     src/heuristic/euclid_diffdrive_heuristic.cpp
     src/heuristic/euclid_fullbody_heuristic.cpp
+    src/heuristic/arm_retract_heuristic.cpp
     src/heuristic/robot_heuristic.cpp
     src/heuristic/joint_dist_heuristic.cpp
     src/heuristic/multi_frame_bfs_heuristic.cpp
     src/heuristic/sparse_egraph_dijkstra_heuristic.cpp
     src/heuristic/zero_heuristic.cpp
+    src/heuristic/base_rot_euclidean_heuristic.cpp
+    src/heuristic/base_rot_bfs_heuristic.cpp
     src/search/fmhastar.cpp
     src/search/meta_mhastar_dts.cpp
     src/search/mhastarpp.cpp
@@ -177,6 +189,7 @@ set(SMPL_LIBRARY_SOURCES
     src/steer/steer.cpp
     src/unicycle/dubins.cpp
     src/unicycle/unicycle.cpp)
+
 
 set(CMAKE_DEBUG_POSTFIX "_d")
 
@@ -273,6 +286,14 @@ if(SMPL_BUILD_STATIC)
     link_common_libraries(smpl-static)
     add_common_compile_definitions(smpl-static)
 endif()
+
+
+###############
+# Test
+###############
+add_executable(test_bfs test/bfs2d.cpp)
+target_include_directories(test_bfs PRIVATE include)
+target_link_libraries(test_bfs smpl-shared)
 
 ################
 # Installation #

@@ -29,8 +29,8 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_BFS_HEURISTIC_H
-#define SMPL_BFS_HEURISTIC_H
+#ifndef SMPL_BFS_3D_HEURISTIC_H
+#define SMPL_BFS_3D_HEURISTIC_H
 
 // standard includes
 #include <memory>
@@ -43,11 +43,11 @@
 
 namespace smpl {
 
-class BfsHeuristic : public RobotHeuristic
+class Bfs3DHeuristic : public RobotHeuristic
 {
 public:
 
-    virtual ~BfsHeuristic();
+    virtual ~Bfs3DHeuristic();
 
     virtual bool init(RobotPlanningSpace* space, const OccupancyGrid* grid);
 
@@ -62,6 +62,8 @@ public:
 
     auto getWallsVisualization() const -> visual::Marker;
     auto getValuesVisualization() -> visual::Marker;
+
+    inline GoalConstraint getGoal(){return m_goal;}
 
     /// \name Required Public Functions from RobotHeuristic
     ///@{
@@ -93,6 +95,7 @@ public:
 private:
 
     const OccupancyGrid* m_grid = nullptr;
+    GoalConstraint m_goal;
 
     std::unique_ptr<BFS_3D> m_bfs;
 

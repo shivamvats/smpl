@@ -29,66 +29,76 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_ACTION_SPACE_H
-#define SMPL_ACTION_SPACE_H
+#include <smpl/heuristic/base_rot_bfs_heuristic.h>
 
 // project includes
-#include <smpl/types.h>
+#include <smpl/bfs/bfs3d.h>
+#include <smpl/console/console.h>
+#include <smpl/debug/marker_utils.h>
+#include <smpl/debug/colors.h>
+#include <smpl/grid/grid.h>
+#include <smpl/heap/intrusive_heap.h>
+#include <smpl/angles.h>
 
 namespace smpl {
 
-using RepId = unsigned int;
+static const char* LOG = "heuristic.base_rot_bfs";
 
-class RobotPlanningSpace;
-struct GoalConstraint;
-
-class ActionSpace
+BaseRotBfsHeuristic::~BaseRotBfsHeuristic()
 {
-public:
+    // empty to allow forward declaration of BFS_3D
+}
 
-    virtual ~ActionSpace();
+bool BaseRotBfsHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid, double rot_angle)
+{
+    if (!BfsHeuristic::init(space, grid)) {
+        return false;
+    }
+    m_rot_angle = rot_angle;
 
-    virtual bool init(RobotPlanningSpace* space);
+    m_pp = space->getExtension<PointProjectionExtension>();
+    if (m_pp != NULL) {
+        SMPL_INFO_NAMED(LOG, "Got Point Projection Extension!");
+    }
+    m_extract_ext = space->getExtension<ExtractRobotStateExtension>();
+    if (m_extract_ext!= NULL) {
+        SMPL_INFO_NAMED(LOG, "Got Extract Robot Extension!");
+    } else
+        return false;
 
-    auto planningSpace() -> RobotPlanningSpace* { return m_space; }
-    auto planningSpace() const -> const RobotPlanningSpace* { return m_space; }
+    return true;
+}
 
-    /// \brief Return the set of actions available from a state.
-    ///
-    /// Each action consists of a sequence of waypoints from the source state
-    /// describing the approximate motion the robot will take to reach a
-    /// successor state. The sequence of waypoints need not contain the the
-    /// source state. The motion between waypoints will be checked via the set
-    /// CollisionChecker's isStateToStateValid function during a search.
-    virtual bool apply(const RobotState& parent, std::vector<Action>& actions) = 0;
 
-    virtual void updateStart(const RobotState& state) { }
-    virtual void updateGoal(const GoalConstraint& goal) { }
+Extension* BaseRotBfsHeuristic::getExtension(size_t class_code)
+{
+    if (class_code == GetClassCode<BaseRotBfsHeuristic>()) {
+        return this;
+    }
+    return nullptr;
+}
 
-private:
-
-    RobotPlanningSpace* m_space = nullptr;
-};
-
-class MultiActionSpace : virtual public ActionSpace {
-    public:
-
-    using ActionSpace::apply;
-
-    MultiActionSpace(int _nreps) : m_nreps{_nreps} {}
-
-    virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
-
-    inline int numReps() const {
-        return m_nreps;
+int BaseRotBfsHeuristic::GetGoalHeuristic(int state_id)
+{
+    if (m_pp == NULL) {
+        return 0;
     }
 
-    private:
+    RobotState robot_state = m_extract_ext->extractState(state_id);
+    double new_orientation = normalize_angle(robot_state[2] + m_rot_angle);
+    robot_state[2] = new_orientation;
 
-    int m_nreps;
+    Vector3 p;
+    if (!m_pp->projectToPoint(robot_state, p)) {
+        return 0;
+    }
 
-};
+    Eigen::Vector3i dp;
+    grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
+
+    int heuristic = getBfsCostToGoal(dp.x(), dp.y(), dp.z());
+    SMPL_DEBUG_NAMED(LOG, "BFS Heuristic: h(%f, %f, %f) = %d", p.x(), p.y(), p.z(), heuristic);
+    return heuristic;
+}
 
 } // namespace smpl
-
-#endif

@@ -30,8 +30,8 @@
 /// \author Benjamin Cohen
 /// \author Andrew Dornbush
 
-#ifndef SMPL_MANIP_LATTICE_H
-#define SMPL_MANIP_LATTICE_H
+#ifndef SMPL_MANIP_LATTICE_MULTI_REP_H
+#define SMPL_MANIP_LATTICE_MULTI_REP_H
 
 // standard includes
 #include <time.h>
@@ -52,102 +52,31 @@
 #include <smpl/robot_model.h>
 #include <smpl/types.h>
 #include <smpl/graph/robot_planning_space.h>
-#include <smpl/graph/manip_lattice_action_space.h>
-#include <smpl/graph/motion_primitive.h>
+#include <smpl/graph/action_space.h>
+#include <smpl/graph/manip_lattice.h>
 
 namespace smpl {
-
-class RobotHeuristic;
-
-typedef std::vector<int> RobotCoord;
-
-struct ManipLatticeState
-{
-    RobotCoord coord;   // discrete coordinate
-    RobotState state;   // corresponding continuous coordinate
-};
-
-inline
-bool operator==(const ManipLatticeState& a, const ManipLatticeState& b)
-{
-    return a.coord == b.coord;
-}
-
-} // namespace smpl
-
-namespace std {
-
-template <>
-struct hash<smpl::ManipLatticeState>
-{
-    typedef smpl::ManipLatticeState argument_type;
-    typedef std::size_t result_type;
-    result_type operator()(const argument_type& s) const;
-};
-
-} // namespace std
-
-namespace smpl {
-
-class ManipLatticeActionSpace;
 
 /// \class Discrete space constructed by expliciting discretizing each joint
-class ManipLattice :
-    public RobotPlanningSpace,
-    public PoseProjectionExtension,
-    public ExtractRobotStateExtension
-{
+class ManipLatticeMultiRep :
+    public ManipLattice {
 public:
 
-    ~ManipLattice();
+    ~ManipLatticeMultiRep();
 
     bool init(
         RobotModel* robot,
         CollisionChecker* checker,
         const std::vector<double>& resolutions,
-        ManipLatticeActionSpace* actions);
+        MultiActionSpace* action_spaces);
 
-    auto resolutions() const -> const std::vector<double>& { return m_coord_deltas; }
-    auto actionSpace() -> ManipLatticeActionSpace* { return m_actions; }
-    auto actionSpace() const -> const ManipLatticeActionSpace* { return m_actions; }
-
-    auto getStartConfiguration() const -> RobotState;
-
-    void setVisualizationFrameId(const std::string& frame_id);
-    auto visualizationFrameId() const -> const std::string&;
-
-    auto getDiscreteCenter(const RobotState& state) const -> RobotState;
-
-    void clearStates();
-    void clearStats();
-
-    /// \name Reimplemented Public Functions from RobotPlanningSpace
-    ///@{
-    void GetLazySuccs(
-        int state_id,
-        std::vector<int>* succs,
-        std::vector<int>* costs,
-        std::vector<bool>* true_costs) override;
-    int GetTrueCost(int parent_id, int child_id) override;
-    ///@}
-
-    /// \name Required Public Functions from ExtractRobotStateExtension
-    ///@{
-    auto extractState(int state_id) -> const RobotState& override;
-    ///@}
-
-    /// \name Required Public Functions from PoseProjectionExtension
-    ///@{
-    bool projectToPose(int state_id, Affine3& pos) override;
-    bool projectToPose(RobotState state, Affine3& pos) override;
-    ///@}
+    auto actionSpace() -> MultiActionSpace* { return m_multi_action_space; }
+    auto actionSpace() const -> const MultiActionSpace* { return m_multi_action_space; }
 
     /// \name Required Public Functions from RobotPlanningSpace
     ///@{
     bool setStart(const RobotState& state) override;
     bool setGoal(const GoalConstraint& goal) override;
-    int getStartStateID() const override;
-    int getGoalStateID() const override;
     bool extractPath(
         const std::vector<int>& ids,
         std::vector<RobotState>& path) override;
@@ -164,61 +93,28 @@ public:
         int state_id,
         std::vector<int>* succs,
         std::vector<int>* costs) override;
-    void PrintState(int state_id, bool verbose, FILE* fout = nullptr) override;
-    void GetPreds(
+    void GetSuccs(
         int state_id,
-        std::vector<int>* preds,
+        int rep_id,
+        std::vector<int>* succs,
         std::vector<int>* costs) override;
     ///@}
 
-    ManipLatticeState* getHashEntry(int state_id) const;
+protected:
 
-    int getMprimComputations(MotionPrimitive::Type t);
-
-    int getMprimEvaluations(MotionPrimitive::Type t){
-        return m_mprim_evaluations[t];
-    }
-
-    int getMprimValid(MotionPrimitive::Type t){
-        return m_mprim_valid[t];
-    }
-
-//protected:
-    public:
-
-    /// \name discretization methods
-    ///@{
-    void coordToState(const RobotCoord& coord, RobotState& state) const;
-    void stateToCoord(const RobotState& state, RobotCoord& coord) const;
-    ///@}
-
-
-    int getHashEntry(const RobotCoord& coord);
-    int createHashEntry(const RobotCoord& coord, const RobotState& state);
-    int getOrCreateState(const RobotCoord& coord, const RobotState& state);
-    int reserveHashEntry();
-
-    Affine3 computePlanningFrameFK(const RobotState& state) const;
-
-    inline int cost(
+    int cost(
         ManipLatticeState* HashEntry1,
         ManipLatticeState* HashEntry2,
-        bool bState2IsGoal) const { return 1000; }
+        bool bState2IsGoal) const;
 
     bool checkAction(const RobotState& state, const Action& action);
 
-    bool isGoal(const RobotState& state);
+private:
 
-    auto getStateVisualization(const RobotState& vars, const std::string& ns)
-        -> std::vector<visual::Marker>;
-    auto getStateVisualization(const RobotState& vars,
-            const std::string& ns,
-            const visual::Color& color)
-        -> std::vector<visual::Marker>;
+    //ForwardKinematicsInterface* m_fk_iface = nullptr;
+    MultiActionSpace* m_multi_action_space;
 
-    protected:
-    ForwardKinematicsInterface* m_fk_iface = nullptr;
-
+    /*
     // cached from robot model
     std::vector<double> m_min_limits;
     std::vector<double> m_max_limits;
@@ -249,12 +145,10 @@ public:
 
     void startNewSearch();
 
-    private:
-
-    ManipLatticeActionSpace* m_actions = nullptr;
-    std::unordered_map<int, int> m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
-    std::unordered_map<int, int> m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
-
+    /// \name planning
+    ///@{
+    ///@}
+    //*/
 };
 
 } // namespace smpl

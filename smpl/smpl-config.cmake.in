@@ -11,7 +11,8 @@ set(smpl_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
 include(${SMPL_CMAKE_DIR}/smpl-targets.cmake)
 #endif()
 
-find_package(sbpl REQUIRED)
+list(APPEND CMAKE_PREFIX_PATH "~/lolocal")
+find_package(sbpl REQUIRED CONFIG)
 
 # Shamelessly copied from GLEW, which similarly uses GLEW::GLEW to refer to
 # GLEW::glew or GLEW::glew_s shared and static library targets.

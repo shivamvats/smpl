@@ -47,6 +47,7 @@
 #include <smpl/debug/marker_utils.h>
 #include <smpl/spatial.h>
 #include "../profiling.h"
+#include <smpl/utils.h>
 
 auto std::hash<smpl::ManipLatticeState>::operator()(
     const argument_type& s) const -> result_type
@@ -72,7 +73,7 @@ bool ManipLattice::init(
     RobotModel* _robot,
     CollisionChecker* checker,
     const std::vector<double>& resolutions,
-    ActionSpace* actions)
+    ManipLatticeActionSpace* actions)
 {
     SMPL_DEBUG_NAMED(G_LOG, "Initialize Manip Lattice");
 
@@ -212,7 +213,7 @@ void ManipLattice::GetSuccs(
 
     ManipLatticeState* parent_entry = m_states[state_id];
 
-    assert(parent_entry);
+    assert(parent_entry != nullptr);
     assert(parent_entry->coord.size() >= robot()->jointVariableCount());
 
     // log expanded state details
@@ -225,7 +226,9 @@ void ManipLattice::GetSuccs(
     int goal_succ_count = 0;
 
     std::vector<Action> actions;
-    if (!m_actions->apply(parent_entry->state, actions)) {
+    std::vector<MotionPrimitive::Type> mprim_types;
+    //if (!m_actions->apply(parent_entry->state, actions)) {
+    if (!m_actions->apply(parent_entry->state, actions, mprim_types)) {
         SMPL_WARN("Failed to get actions");
         return;
     }
@@ -240,11 +243,13 @@ void ManipLattice::GetSuccs(
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "    action %zu:", i);
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      waypoints: %zu", action.size());
 
+        m_mprim_evaluations[mprim_types[i]]++;
         if (!checkAction(parent_entry->state, action)) {
             continue;
         }
+        m_mprim_valid[mprim_types[i]]++;
 
-        // compute destination coords
+        // compute destination coord
         stateToCoord(action.back(), succ_coord);
 
         // get the successor
@@ -454,12 +459,22 @@ bool ManipLattice::projectToPose(int state_id, Affine3& pose)
     return true;
 }
 
+bool ManipLattice::projectToPose(RobotState state, Affine3& pose)
+{
+    pose = computePlanningFrameFK(state);
+    return true;
+}
+
 void ManipLattice::GetPreds(
     int state_id,
     std::vector<int>* preds,
     std::vector<int>* costs)
 {
     SMPL_WARN("GetPreds unimplemented");
+}
+
+int ManipLattice::getMprimComputations(MotionPrimitive::Type t){
+    return m_actions->getMprimComputations(t);
 }
 
 // angles are counterclockwise from 0 to 360 in radians, 0 is the center of bin
@@ -586,14 +601,33 @@ auto ManipLattice::computePlanningFrameFK(const RobotState& state) const
     return m_fk_iface->computeFK(state);
 }
 
-int ManipLattice::cost(
+// This cost function makes the planner minimize the number of actions (all
+// actions considered equivalent).
+/*
+inline int ManipLattice::cost(
     ManipLatticeState* HashEntry1,
     ManipLatticeState* HashEntry2,
     bool bState2IsGoal) const
 {
+    auto& start_state = HashEntry1->state;
+    auto& end_state = HashEntry2->state;
     auto DefaultCostMultiplier = 1000;
-    return DefaultCostMultiplier;
+
+    std::vector<double> W( start_state.size(), 1 );
+    W[0]*= 1;
+    W[1]*= 1;
+    W[2]*= 1;
+    W[3]*= 1;
+    W[4]*= 1;
+    W[5]*= 1;
+    W[6]*= 2;
+    W[7]*= 2;
+    W[8]*= 2;
+    W[9]*= 2;
+    int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
+    return cost;
 }
+*/
 
 bool ManipLattice::checkAction(const RobotState& state, const Action& action)
 {
@@ -774,9 +808,28 @@ auto ManipLattice::getStateVisualization(
     return markers;
 }
 
+auto ManipLattice::getStateVisualization(
+    const RobotState& state,
+    const std::string& ns,
+    const visual::Color& color)
+    -> std::vector<visual::Marker>
+{
+    auto markers = collisionChecker()->getCollisionModelVisualization(state);
+    for (auto& marker : markers) {
+        marker.ns = ns;
+        marker.color = color;
+    }
+    return markers;
+}
+
 bool ManipLattice::setStart(const RobotState& state)
 {
+    assert(state != NULL);
     SMPL_DEBUG_NAMED(G_LOG, "set the start state");
+    for(auto& val : state){
+        SMPL_DEBUG_NAMED(G_LOG, "%f, ", val);
+    }
+    SMPL_DEBUG_NAMED(G_LOG, "\n");
 
     if ((int)state.size() < robot()->jointVariableCount()) {
         SMPL_ERROR_NAMED(G_LOG, "start state does not contain enough joint positions");
@@ -873,6 +926,12 @@ void ManipLattice::clearStates()
     m_states.shrink_to_fit();
 
     m_goal_state_id = reserveHashEntry();
+}
+
+void ManipLattice::clearStats(){
+    m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    m_actions->clearStats();
 }
 
 bool ManipLattice::extractPath(

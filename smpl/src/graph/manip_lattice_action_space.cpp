@@ -71,6 +71,8 @@ bool ManipLatticeActionSpace::init(ManipLattice* space)
         SMPL_WARN("Manip Lattice Action Set recommends Inverse Kinematics Interface");
     }
 
+    m_manip_lattice = dynamic_cast<ManipLattice*>(space);
+
     useMultipleIkSolutions(false);
     useAmp(MotionPrimitive::SNAP_TO_XYZ, false);
     useAmp(MotionPrimitive::SNAP_TO_RPY, false);
@@ -100,6 +102,7 @@ bool ManipLatticeActionSpace::init(ManipLattice* space)
 /// dvi1         dvi2        ... dvim
 bool ManipLatticeActionSpace::load(const std::string& action_filename)
 {
+    ROS_ERROR("%s", action_filename.c_str());
     FILE* fCfg = fopen(action_filename.c_str(), "r");
     if (!fCfg) {
         SMPL_ERROR("Failed to open action set file. (file: '%s')", action_filename.c_str());
@@ -169,9 +172,9 @@ bool ManipLatticeActionSpace::load(const std::string& action_filename)
         }
 
         if (i < (nrows - short_mprims)) {
-            addMotionPrim(mprim, false);
+            addMotionPrim(mprim, false, false);
         } else {
-            addMotionPrim(mprim, true);
+            addMotionPrim(mprim, true, false);
         }
     }
 
@@ -330,6 +333,25 @@ auto ManipLatticeActionSpace::getStartGoalDistances(const RobotState& state)
 
 bool ManipLatticeActionSpace::apply(
     const RobotState& parent,
+    std::vector<Action>& actions,
+    std::vector<MotionPrimitive::Type>& types){
+    double goal_dist, start_dist;
+    std::tie(start_dist, goal_dist) = getStartGoalDistances(parent);
+
+    for (auto& prim : m_mprims) {
+        if(getAction(parent, goal_dist, start_dist, prim, actions))
+            types.push_back(prim.type);
+    }
+    assert(type.size() == actions.size());
+    if (actions.empty()) {
+        SMPL_WARN_ONCE("No motion primitives specified");
+    }
+
+    return true;
+}
+
+bool ManipLatticeActionSpace::apply(
+    const RobotState& parent,
     std::vector<Action>& actions)
 {
     double goal_dist, start_dist;
@@ -338,7 +360,6 @@ bool ManipLatticeActionSpace::apply(
     for (auto& prim : m_mprims) {
         (void)getAction(parent, goal_dist, start_dist, prim, actions);
     }
-
     if (actions.empty()) {
         SMPL_WARN_ONCE("No motion primitives specified");
     }
@@ -356,6 +377,7 @@ bool ManipLatticeActionSpace::getAction(
     if (!mprimActive(start_dist, goal_dist, mp.type)) {
         return false;
     }
+    m_mprim_computations[int(mp.type)]++;
 
     GoalType goal_type = planningSpace()->goal().type;
     auto& goal_pose = planningSpace()->goal().pose;
@@ -418,22 +440,74 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
     const MotionPrimitive& mp,
     Action& action)
 {
+    RobotCoord coords(state.size(), 0);
+    m_manip_lattice->stateToCoord(state, coords);
     action = mp.action;
-    for (size_t i = 0; i < action.size(); ++i) {
+
+    for(size_t i=0; i<action.size(); i++){
         if (action[i].size() != state.size()) {
+            ROS_ERROR("WTF");
             return false;
         }
+        /*
+        if( fabs(action[i][0]) > 0.001 ){
+            ROS_ERROR("Coords[2]: %d", coords[2]);
+            ROS_ERROR("Before actions[i]: %f, %f", action[i][0], action[i][1]);
+            double mult = action[i][0];
+
+            if( (coords[2] == 0) || (coords[2] == 8) ){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1];
+            }
+            else if((coords[2] == 4) || (coords[2] == 12)){
+                action[i][0] = state[0];
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 2) || (coords[2] == 10)){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 6) || (coords[2] == 14)){
+                action[i][0] = state[0] - mult;
+                action[i][1] = state[1] + mult;
+            }
+            else if((coords[2] == 1) || (coords[2] == 9)){
+                action[i][0] = state[0] + 2*mult;
+                action[i][1] = state[1] + 1*mult;
+            }
+            else if((coords[2] == 3) || (coords[2] == 11)){
+                action[i][0] = state[0] + mult;
+                action[i][1] = state[1] + 2*mult;
+            }
+            else if((coords[2] == 5) || (coords[2] == 13)){
+                action[i][0] = state[0] - mult;
+                action[i][1] = state[1] + 2*mult;
+            }
+            else if((coords[2] == 7) || (coords[2] == 15)){
+                action[i][0] = state[0] - 2*mult;
+                action[i][1] = state[1] + mult;
+            }
+            else{
+                ROS_ERROR("WTF! Angles not understood.");
+            }
+            ROS_ERROR("After actions[i]: %f, %f", action[i][0], action[i][1]);
+        }
+        if(action[i][2] > 0)
+            ROS_ERROR("Rotating in place");
+        */
 
         double theta;
         theta = state[2];
-        auto r = action[i][0];
+        auto r = action[i][0]*1.414;
         // Resolve global x component.
         action[i][0] = cos(theta)*r + state[0];
         action[i][1] = sin(theta)*r + state[1];
+
         for (size_t j = 2; j < action[i].size(); ++j) {
             action[i][j] = action[i][j] + state[j];
         }
     }
+
     return true;
 }
 
@@ -503,6 +577,178 @@ bool ManipLatticeActionSpace::mprimActive(
     } else {
         return m_mprim_enabled[type] && goal_dist <= m_mprim_thresh[type];
     }
+}
+
+bool ManipLatticeMultiActionSpace::init(ManipLattice* space){
+    clear();
+    m_rep_mprims.resize(numReps());
+    return ManipLatticeActionSpace::init(space);
+}
+
+bool ManipLatticeMultiActionSpace::load( const std::string& action_filename ){
+    return load( 0, action_filename );
+}
+
+bool ManipLatticeMultiActionSpace::load( RepId rep_id, const std::string& action_filename ) {
+    ROS_ERROR("%s", action_filename.c_str());
+    FILE* fCfg = fopen(action_filename.c_str(), "r");
+    if (!fCfg) {
+        SMPL_ERROR("Failed to open action set file. (file: '%s')", action_filename.c_str());
+        return false;
+    }
+
+    char sTemp[1024] = { 0 };
+    int nrows = 0;
+    int ncols = 0;
+    int short_mprims = 0;
+
+    // read and check header
+    if (fscanf(fCfg, "%1023s", sTemp) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+    }
+
+    if (strcmp(sTemp, "Motion_Primitives(degrees):") != 0) {
+        SMPL_ERROR("First line of motion primitive file should be 'Motion_Primitives(degrees):'. Please check your file. (parsed string: %s)\n", sTemp);
+        return false;
+    }
+
+    // read number of actions
+    if (fscanf(fCfg, "%d", &nrows) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+
+    // read length of joint array
+    if (fscanf(fCfg, "%d", &ncols) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+
+    // read number of short distance motion primitives
+    if (fscanf(fCfg, "%d", &short_mprims) < 1) {
+        SMPL_ERROR("Parsed string has length < 1.");
+        return false;
+    }
+    SMPL_ERROR("Short mprims: %d", short_mprims);
+
+    if (short_mprims == nrows) {
+        SMPL_WARN("# of motion prims == # of short distance motion prims. No long distance motion prims set.");
+    }
+
+    std::vector<double> mprim(ncols, 0);
+
+    bool have_short_dist_mprims = short_mprims > 0;
+    if (have_short_dist_mprims) {
+        useAmp(MotionPrimitive::SHORT_DISTANCE, true);
+    }
+
+    ManipLattice* lattice = static_cast<ManipLattice*>(planningSpace());
+
+    for (int i = 0; i < nrows; ++i) {
+        // read joint delta
+        for (int j = 0; j < ncols; ++j) {
+            double d;
+            if (fscanf(fCfg, "%lf", &d) < 1)  {
+                SMPL_ERROR("Parsed string has length < 1.");
+                return false;
+            }
+            if (feof(fCfg)) {
+                SMPL_ERROR("End of parameter file reached prematurely. Check for newline.");
+                return false;
+            }
+            mprim[j] = d * lattice->resolutions()[j];
+            SMPL_DEBUG("Got %0.3f deg -> %0.3f rad", d, mprim[j]);
+        }
+
+        if (i < (nrows - short_mprims)) {
+            addMotionPrim(rep_id, mprim, false, false);
+        } else {
+            addMotionPrim(rep_id, mprim, true, false);
+        }
+    }
+
+    fclose(fCfg);
+    return true;
+}
+
+void ManipLatticeMultiActionSpace::addMotionPrim(
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse){
+    addMotionPrim( 0, mprim, short_dist_mprim, add_converse );
+}
+
+void ManipLatticeMultiActionSpace::addMotionPrim(
+        RepId rep_id,
+        const std::vector<double>& mprim,
+        bool short_dist_mprim,
+        bool add_converse){
+    assert(rep_id < numReps());
+
+    MotionPrimitive m;
+
+    if (short_dist_mprim) {
+        m.type = MotionPrimitive::SHORT_DISTANCE;
+    } else {
+        m.type = MotionPrimitive::LONG_DISTANCE;
+    }
+
+    m.action.push_back(mprim);
+    m_rep_mprims[rep_id].push_back(m);
+
+    if (add_converse) {
+        for (RobotState& state : m.action) {
+            for (size_t i = 0; i < state.size(); ++i) {
+                state[i] *= -1.0;
+            }
+        }
+        m_rep_mprims[rep_id].push_back(m);
+    }
+}
+
+void ManipLatticeMultiActionSpace::clear(){
+    ManipLatticeActionSpace::clear();
+    m_rep_mprims.clear();
+}
+
+void ManipLatticeActionSpace::clearStats(){
+    m_mprim_computations = { {0, 0 }, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+}
+
+bool ManipLatticeMultiActionSpace::apply(
+        const RobotState& _parent,
+        std::vector<Action>& _actions ){
+    return apply(0, _parent, _actions);
+}
+
+bool ManipLatticeMultiActionSpace::apply(
+        RepId _rep_id,
+        const RobotState& _parent,
+        std::vector<Action>& _actions ){
+
+    double goal_dist, start_dist;
+    std::tie(start_dist, goal_dist) = getStartGoalDistances(_parent);
+
+    for (auto& prim : m_rep_mprims[_rep_id]) {
+        (void)getAction(_parent, goal_dist, start_dist, prim, _actions);
+    }
+
+    /*
+    MotionPrimitive mp;
+    mp.type = MotionPrimitive::SNAP_TO_RPY;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    mp.type = MotionPrimitive::SNAP_TO_XYZ;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    mp.type = MotionPrimitive::SNAP_TO_XYZ_RPY;
+    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    */
+
+
+    if (_actions.empty()) {
+        SMPL_WARN_ONCE("No motion primitives specified");
+    }
+
+    return true;
 }
 
 } // namespace smpl

@@ -152,6 +152,7 @@ public:
     virtual ~PointProjectionExtension() { }
 
     virtual bool projectToPoint(int state_id, Vector3& pos) = 0;
+    virtual bool projectToPoint(RobotState, Vector3&){}
 };
 
 class PoseProjectionExtension : public PointProjectionExtension
@@ -170,7 +171,17 @@ public:
         return true;
     }
 
+    bool projectToPoint(RobotState state, Vector3& pose_) override {
+        Affine3 pose;
+        if(!projectToPose(state, pose)){
+            return false;
+        }
+        pose_ = pose.translation();
+        return true;
+    }
+
     virtual bool projectToPose(int state_id, Affine3& pose) = 0;
+    virtual bool projectToPose(RobotState state, Affine3& pose){ return false; }
 };
 
 class ExtractRobotStateExtension : public virtual Extension

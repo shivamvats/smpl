@@ -8,13 +8,7 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 find_package(Boost REQUIRED COMPONENTS filesystem)
-
 find_package(Eigen3 REQUIRED)
-
-find_package(sbpl REQUIRED)
-set(sbpl_INCLUDE_DIRS ${SBPL_INCLUDE_DIRS})
-set(sbpl_LIBRARIES ${SBPL_LIBRARIES})
-
 find_package(
     catkin
     REQUIRED
@@ -43,7 +37,6 @@ catkin_package(
         visualization_msgs
     DEPENDS
         Boost
-        sbpl
         smpl)
 
 add_definitions(-DSV_PACKAGE_NAME="smpl_ros")
@@ -52,7 +45,6 @@ include_directories(include)
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS})
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
-include_directories(SYSTEM ${sbpl_INCLUDE_DIRS})
 
 add_library(
     smpl_ros

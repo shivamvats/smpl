@@ -29,64 +29,44 @@
 
 /// \author Andrew Dornbush
 
-#ifndef SMPL_ACTION_SPACE_H
-#define SMPL_ACTION_SPACE_H
+#ifndef SMPL_BASE_ROT_BFS_HEURISTIC_H
+#define SMPL_BASE_ROT_BFS_HEURISTIC_H
+
+// standard includes
+#include <memory>
 
 // project includes
-#include <smpl/types.h>
+#include <smpl/occupancy_grid.h>
+#include <smpl/bfs/bfs3d.h>
+#include <smpl/debug/marker.h>
+#include <smpl/heuristic/bfs_heuristic.h>
 
 namespace smpl {
 
-using RepId = unsigned int;
-
-class RobotPlanningSpace;
-struct GoalConstraint;
-
-class ActionSpace
+class BaseRotBfsHeuristic : public BfsHeuristic
 {
 public:
 
-    virtual ~ActionSpace();
+    virtual ~BaseRotBfsHeuristic();
 
-    virtual bool init(RobotPlanningSpace* space);
+    bool init(RobotPlanningSpace* space, const OccupancyGrid* grid, double angle);
 
-    auto planningSpace() -> RobotPlanningSpace* { return m_space; }
-    auto planningSpace() const -> const RobotPlanningSpace* { return m_space; }
+    /// \name Required Public Functions from Extension
+    ///@{
+    Extension* getExtension(size_t class_code) override;
+    ///@}
 
-    /// \brief Return the set of actions available from a state.
-    ///
-    /// Each action consists of a sequence of waypoints from the source state
-    /// describing the approximate motion the robot will take to reach a
-    /// successor state. The sequence of waypoints need not contain the the
-    /// source state. The motion between waypoints will be checked via the set
-    /// CollisionChecker's isStateToStateValid function during a search.
-    virtual bool apply(const RobotState& parent, std::vector<Action>& actions) = 0;
-
-    virtual void updateStart(const RobotState& state) { }
-    virtual void updateGoal(const GoalConstraint& goal) { }
+    /// \name Required Public Functions from Heuristic
+    ///@{
+    int GetGoalHeuristic(int state_id) override;
+    ///@}
 
 private:
 
-    RobotPlanningSpace* m_space = nullptr;
-};
+    PointProjectionExtension* m_pp = nullptr;
+    ExtractRobotStateExtension* m_extract_ext = nullptr;
 
-class MultiActionSpace : virtual public ActionSpace {
-    public:
-
-    using ActionSpace::apply;
-
-    MultiActionSpace(int _nreps) : m_nreps{_nreps} {}
-
-    virtual bool apply(RepId rep_id, const RobotState& parent, std::vector<Action>& actions) = 0;
-
-    inline int numReps() const {
-        return m_nreps;
-    }
-
-    private:
-
-    int m_nreps;
-
+    double m_rot_angle;
 };
 
 } // namespace smpl
