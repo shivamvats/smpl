@@ -47,6 +47,7 @@ namespace smpl {
 static const char* LOG = "search.smhastar";
 static const char* ELOG = "search.smhastar.expansions";
 static const char* SLOG = "search.smhastar.successors";
+static const char* DLOG = "search.smhastar.expanded_state";
 
 static double GetTime()
 {
@@ -507,6 +508,7 @@ int SMHAStar::compute_key(SMHAState* state, int hidx)
 void SMHAStar::expand(SMHAState* state, int hidx)
 {
     SMPL_DEBUG_NAMED(LOG, "Expanding state %d in search %d", state->state_id, hidx);
+    SMPL_DEBUG_NAMED(DLOG, "%d, %d", state->state_id, hidx);
 
     assert(!closed_in_add_search(state) || !closed_in_anc_search(state));
 

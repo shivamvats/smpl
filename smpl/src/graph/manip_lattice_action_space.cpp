@@ -446,7 +446,7 @@ bool ManipLatticeActionSpace::applyMotionPrimitive(
 
     for(size_t i=0; i<action.size(); i++){
         if (action[i].size() != state.size()) {
-            ROS_ERROR("WTF");
+            ROS_ERROR("WTF, mprims not compatible with the State");
             return false;
         }
         /*
