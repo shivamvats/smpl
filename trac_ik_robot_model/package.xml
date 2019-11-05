@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>trac_ik_robot_model</name>
+    <version>0.0.0</version>
+    <description>The trac_ik_robot_model package</description>
+
+    <maintainer email="svats@todo.todo">svats</maintainer>
+    <license>BSD</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <depend>eigen_conversions</depend>
+    <depend>leatherman</depend>
+    <depend>orocos_kdl</depend>
+    <depend>roscpp</depend>
+    <depend>smpl</depend>
+    <depend>smpl_urdf_robot_model</depend>
+    <depend>urdf</depend>
+    <depend>trac_ik_lib</depend>
+</package>
