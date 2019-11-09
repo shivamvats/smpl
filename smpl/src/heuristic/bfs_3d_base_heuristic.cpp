@@ -233,7 +233,7 @@ int Bfs3DBaseHeuristic::GetGoalHeuristic(int state_id)
                 robot_grid[0], robot_grid[1], robot_grid[2] );
         int gtheta = normalize_angle_positive(robot_state[2]) / 6.28 * m_thetac;
         heuristic = m_cost_per_cell*getBfsCostToGoal(robot_grid[0], robot_grid[1], gtheta);
-        auto path = m_bfs_3d_base->getPath(robot_grid[0], robot_grid[1], gtheta);
+        //auto path = m_bfs_3d_base->getPath(robot_grid[0], robot_grid[1], gtheta);
         SMPL_DEBUG_NAMED(LOG, "x= %d, y=%d, theta= %d : %d", robot_grid[0], robot_grid[1], gtheta, heuristic);
 
     } else {
