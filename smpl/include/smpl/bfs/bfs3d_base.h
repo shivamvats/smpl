@@ -26,7 +26,7 @@ public:
     void run(int x, int y, int z);
 
     using BaseState = std::array<int, 3>;
-    std::vector<BaseState> getPath(int x, int y, int z);
+    std::vector<BaseState> getPathToGoal(int x, int y, int z);
 
     /// \brief Run the BFS starting from a variable number of cells
     template <typename InputIt>

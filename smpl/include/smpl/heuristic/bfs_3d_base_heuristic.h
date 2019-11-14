@@ -57,9 +57,10 @@ public:
     void syncGridAndBfs();
 
     inline void set2DProjectionThresh(double th){m_2d_projection_thresh = th;}
-    std::vector< std::array<double, 3> > getPath(int state_id);
+    std::vector< std::array<int, 3> > getPathToGoal(int state_id);
+    std::vector< std::array<int, 3> > getPathToGoal( std::vector<double> );
 
-    std::vector<std::vector<double>> m_heuristic_base_poses;
+    std::vector<double> m_goal_base_pose;
 
 private:
 

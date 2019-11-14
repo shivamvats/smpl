@@ -217,22 +217,23 @@ int Bfs3DBaseHeuristic::getBfsCostToGoal(int x, int y, int theta) const {
     }
 }
 
-std::vector< std::array<double, 3> > Bfs3DBaseHeuristic::getPath(int state_id){
+std::vector< std::array<int, 3> > Bfs3DBaseHeuristic::getPathToGoal( int state_id )
+{
     auto robot_state = (dynamic_cast<ManipLattice*>(planningSpace()))->extractState(state_id);
     int robot_grid[3];
     grid()->worldToGrid( robot_state[0], robot_state[1], 0,
             robot_grid[0], robot_grid[1], robot_grid[2] );
     int gtheta = normalize_angle_positive(robot_state[2]) / 6.28 * m_thetac;
+    return m_bfs_3d_base->getPathToGoal(robot_grid[0], robot_grid[1], gtheta);
+}
 
-    auto grid_path = m_bfs_3d_base->getPath( robot_grid[0], robot_grid[1], gtheta );
-    std::vector< std::array<double, 3> > path;
-    for(const auto& grid_state : grid_path ){
-        std::array<double, 3> state;
-        grid()->gridToWorld(grid_state[0], grid_state[1], 0, state[0], state[1], state[2]);
-        state[2] = grid_state[2]*6.28/m_thetac;
-        path.push_back(state);
-    }
-    return path;
+std::vector< std::array<int, 3> > Bfs3DBaseHeuristic::getPathToGoal( std::vector<double> _robot_state )
+{
+    int robot_grid[3];
+    grid()->worldToGrid( _robot_state[0], _robot_state[1], 0,
+            robot_grid[0], robot_grid[1], robot_grid[2] );
+    int gtheta = normalize_angle_positive(_robot_state[2]) / 6.28 * m_thetac;
+    return m_bfs_3d_base->getPathToGoal(robot_grid[0], robot_grid[1], gtheta);
 }
 
 auto Bfs3DBaseHeuristic::getValuesVisualization() -> visual::Marker {

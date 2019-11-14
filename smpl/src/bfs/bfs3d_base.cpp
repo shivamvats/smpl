@@ -132,7 +132,7 @@ void BFS_3D_Base::run(int x, int y, int z)
     m_running = true;
 }
 
-std::vector<BFS_3D_Base::BaseState> BFS_3D_Base::getPath(int x, int y, int z){
+std::vector<BFS_3D_Base::BaseState> BFS_3D_Base::getPathToGoal(int x, int y, int z){
     std::vector<BaseState> path;
     int currentNode = getNode(x, y, z);
     int bestPred = currentNode;
