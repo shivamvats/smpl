@@ -112,6 +112,7 @@ public:
     auto actionSpace() const -> const ManipLatticeActionSpace* { return m_actions; }
 
     auto getStartConfiguration() const -> RobotState;
+    std::vector<double> getGoalBasePose();
 
     void setVisualizationFrameId(const std::string& frame_id);
     auto visualizationFrameId() const -> const std::string&;
@@ -247,6 +248,8 @@ public:
     bool setGoalConfiguration(const GoalConstraint& goal);
     bool setUserGoal(const GoalConstraint& goal);
 
+    bool computeGoalBasePoses(const GoalConstraint&);
+
     void startNewSearch();
 
     private:
@@ -254,6 +257,9 @@ public:
     ManipLatticeActionSpace* m_actions = nullptr;
     std::unordered_map<int, int> m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
     std::unordered_map<int, int> m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
+    // Only storing x, y and yaw
+    std::vector< std::vector<double> > m_goal_base_poses;
+    int m_base_pose_ix = 0;
 
 };
 

@@ -68,104 +68,15 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
         // of goal this is. For joint state goals, we should project the start
         // state to a goal position, since we can't reliably expect goal.pose
         // to be valid.
-
-        // When planning for the right hand, walker's base yaw must be at 90
-        // degrees at the goal. Hence, sample base positions around that region.
-        auto goal_pose = goal.pose;
-        double goal_x = goal_pose.translation()[0];
-        double goal_y = goal_pose.translation()[1];
-        auto rot = goal_pose.rotation();
-
-        double r, p, ya;
-        smpl::angles::get_euler_zyx(rot, ya, p, r);
-
-        double base_x=0, base_y=0;
-
-        double delta = 0;
-        double increment = 0.005;
-        double arm_increment = 0.05;
-
-        bool found_base = false;
-
-        double theta_opt = PI/2 + ya;
-        double theta = theta_opt;
-        m_heuristic_base_poses.clear();
-        for (int i=0; i<500; i++) {
-            delta += increment;
-            double arm_length = 0.45;
-        for(int j=0 ;j<3; j++){
-            arm_length += arm_increment;
-            double possible_x = goal_x + arm_length*cos(theta);
-            double possible_y = goal_y + arm_length*sin(theta);
-            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
-            RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
-            //SV_SHOW_INFO_NAMED("heur", dynamic_cast<smpl::collision::CollisionSpace*>(planningSpace()->collisionChecker())->getCollisionRobotVisualization(possible_base));
-            possible_state[0] = possible_x;
-            possible_state[1] = possible_y;
-            possible_state[2] = possible_yaw;
-
-            if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
-                m_heuristic_base_poses.push_back(possible_state);
-                found_base = true;
-                ROS_INFO("Success on Iteration: %d", i);
-                ROS_INFO("Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
-                break;
-            }
-            // Explore symmetrically about the optimal theta.
-            if(i%2)
-                theta = theta_opt + delta;
-            else
-                theta = theta_opt - delta;
-        }
-        if(found_base)
-            break;
-        }
-        if(!found_base){
-        double arm_length = 0.45;
-        for(int j=3 ;j<10; j++){
-            arm_length += arm_increment;
-        for (int i=0; i<1500; i++) {
-            delta += increment;
-            double possible_x = goal_x + arm_length*cos(theta);
-            double possible_y = goal_y + arm_length*sin(theta);
-            double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
-            RobotState possible_state(planningSpace()->robot()->jointCount(), 0);
-            //SV_SHOW_INFO_NAMED("heur", dynamic_cast<smpl::collision::CollisionSpace*>(planningSpace()->collisionChecker())->getCollisionRobotVisualization(possible_base));
-            possible_state[0] = possible_x;
-            possible_state[1] = possible_y;
-            possible_state[2] = possible_yaw;
-
-            if (planningSpace()->collisionChecker()->isStateValid(possible_state)) {
-                m_heuristic_base_poses.push_back(possible_state);
-                found_base = true;
-                ROS_INFO("Success on Iteration: %d", i);
-                ROS_INFO("Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
-                break;
-            }
-            // Explore symmetrically about the optimal theta.
-            if(i%2)
-                theta = theta_opt + delta;
-            else
-                theta = theta_opt - delta;
-        }
-        if(found_base)
-            break;
-        }
-        }
-
-        if(!m_heuristic_base_poses.size()){
-            ROS_ERROR("No base position found");
-            throw "No base position found.";
-        }
+m_goal_base_pose = dynamic_cast<ManipLattice*> (planningSpace())->getGoalBasePose();
         int gx, gy, gz;
         grid()->worldToGrid(
-                m_heuristic_base_poses[0][0],
-                m_heuristic_base_poses[0][1],
+                m_goal_base_pose[0],
+                m_goal_base_pose[1],
                 0,
                 gx, gy, gz);
 
-        int gtheta = normalize_angle_positive(m_heuristic_base_poses[0][2]) / 6.28 * m_thetac;
-
+        int gtheta = normalize_angle_positive(m_goal_base_pose[2]) / 6.28 * m_thetac;
         if (!m_bfs_3d_base->inBounds(gx, gy, gtheta)) {
             SMPL_ERROR_NAMED(LOG, "Base goal is out of BFS bounds");
             break;

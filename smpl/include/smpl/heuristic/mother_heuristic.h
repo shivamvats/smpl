@@ -1,12 +1,15 @@
 #ifndef SMPL_MOTHER_HEURISTIC_H
 #define SMPL_MOTHER_HEURISTIC_H
 
+#include <smpl/console/console.h>
 #include "robot_heuristic.h"
 #include "bfs_2d_heuristic.h"
 #include "bfs_3d_heuristic.h"
 #include "bfs_3d_base_heuristic.h"
 
-//namespace smpl {
+namespace smpl
+{
+
 struct MotherHeuristic : public smpl::RobotHeuristic {
 
     inline double getMetricStartDistance( double, double, double ){return 0.0;}
@@ -23,7 +26,7 @@ struct MotherHeuristic : public smpl::RobotHeuristic {
     int GetFromToHeuristic(int from_id, int to_id){return 0;}
 };
 
-struct BfsHeuristic : public MotherHeuristic {
+struct CompoundBfsHeuristic : public MotherHeuristic {
 
     inline bool init( std::shared_ptr<smpl::Bfs3DBaseHeuristic> _bfs_3d_base,
             std::shared_ptr<smpl::Bfs3DHeuristic> _bfs_3d ){
@@ -37,7 +40,12 @@ struct BfsHeuristic : public MotherHeuristic {
                 areClose(_goal.pose, bfs_3d->getGoal().pose))
             return;
         goal = _goal;
-        bfs_3d_base->updateGoal(_goal);
+        try {
+            bfs_3d_base->updateGoal(_goal);
+        } catch (std::runtime_error) {
+            SMPL_ERROR("ImprovedEndEffHeuristic can not use BFS for base in heuristic computation");
+            bfs_3d_base = nullptr;
+        }
         bfs_3d->updateGoal(_goal);
     }
 
@@ -66,6 +74,6 @@ struct BfsHeuristic : public MotherHeuristic {
     }
 };
 
-//} //namespace smpl
+} //namespace smpl
 
 #endif

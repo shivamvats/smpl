@@ -55,6 +55,7 @@ endforeach()
 ########################
 
 find_package(Boost REQUIRED COMPONENTS filesystem program_options system)
+find_package(leatherman REQUIRED)
 find_package(Eigen3 REQUIRED)
 list(APPEND CMAKE_PREFIX_PATH "~/lolocal")
 find_package(sbpl REQUIRED config)
@@ -206,6 +207,7 @@ endif()
 list(APPEND PUBLIC_HEADERS ${EIGEN3_INCLUDE_DIR})
 list(APPEND PUBLIC_HEADERS ${Boost_INCLUDE_DIRS})
 list(APPEND PUBLIC_HEADERS ${SBPL_INCLUDE_DIRS})
+list(APPEND PUBLIC_HEADERS ${leatherman_INCLUDE_DIRS})
 #list(APPEND PUBLIC_HEADERS ${smpl_urdf_robot_model_INCLUDE_DIRS})
 #list(APPEND PUBLIC_HEADERS ${sbpl_kdl_robot_model_INCLUDE_DIRS})
 
@@ -220,6 +222,7 @@ if(SMPL_HAS_ROSCONSOLE)
     list(APPEND PUBLIC_LIBRARIES ${roscpp_LIBRARIES})
 endif()
 list(APPEND PUBLIC_LIBRARIES ${SBPL_LIBRARIES})
+list(APPEND PUBLIC_LIBRARIES ${leatherman_LIBRARIES})
 #list(APPEND PUBLIC_LIBRARIES ${smpl_urdf_robot_model_LIBRARIES})
 #list(APPEND PUBLIC_LIBRARIES ${sbpl_kdl_robot_model_LIBRARIES})
 

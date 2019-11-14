@@ -49,6 +49,8 @@
 #include "../profiling.h"
 #include <smpl/utils.h>
 
+#include <leatherman/utils.h>
+
 auto std::hash<smpl::ManipLatticeState>::operator()(
     const argument_type& s) const -> result_type
 {
@@ -1108,6 +1110,18 @@ RobotState ManipLattice::getStartConfiguration() const
     }
 }
 
+std::vector<double> ManipLattice::getGoalBasePose()
+{
+    if( m_base_pose_ix < m_goal_base_poses.size() )
+    {
+        SMPL_DEBUG_NAMED( G_LOG, "Base pose assigned: %d", m_base_pose_ix );
+        return m_goal_base_poses[m_base_pose_ix++];
+    } else 
+    {
+        throw std::runtime_error("Not enough valid goal base poses");
+    }
+}
+
 /// Set a 6-dof goal pose for the planning link
 bool ManipLattice::setGoalPose(const GoalConstraint& gc)
 {
@@ -1127,7 +1141,11 @@ bool ManipLattice::setGoalPose(const GoalConstraint& gc)
     SMPL_DEBUG_NAMED(G_LOG, "    rpy (radians): (%0.2f, %0.2f, %0.2f)", roll, pitch, yaw);
     SMPL_DEBUG_NAMED(G_LOG, "    tol (radians): %0.3f", gc.rpy_tolerance[0]);
 
-
+    if(!computeGoalBasePoses(gc))
+    {
+        ROS_ERROR("Could not compute any valid base poses around the goal. Planning is not feasible.");
+        return false;
+    }
     // set the (modified) goal
     return RobotPlanningSpace::setGoal(gc);
 }
@@ -1163,4 +1181,90 @@ bool ManipLattice::setUserGoal(const GoalConstraint& goal)
     return RobotPlanningSpace::setGoal(goal);
 }
 
+bool ManipLattice::computeGoalBasePoses( const GoalConstraint& goal )
+{
+    // Reset
+    m_goal_base_poses.clear();
+    m_base_pose_ix = 0;
+
+    // When planning for the right hand, walker's base yaw must be at 90
+    // degrees at the goal. Hence, start sampling base positions around that region.
+    auto goal_pose = goal.pose;
+    double goal_x = goal_pose.translation()[0];
+    double goal_y = goal_pose.translation()[1];
+    auto rot = goal_pose.rotation();
+
+    double r, p, ya;
+    smpl::angles::get_euler_zyx(rot, ya, p, r);
+
+    // Hyper-parameters
+    // Divide 360 into 8 sectors of 45 each.
+    // Start with theta_opt and search in the corresponding 45 sector.
+    //  Increment by 45 and repeat.
+    const double sector_increment = smpl::angles::to_radians(45.0);
+    constexpr int num_iters_per_sector = 100;
+    constexpr double increment = smpl::angles::to_radians(22.5) / num_iters_per_sector;
+    double arm_increment = 0.01;
+    double arm_length = 0.45;
+
+    double base_x = 0, base_y = 0;
+    double theta_opt = M_PI/2 + ya;
+    double theta_center = theta_opt;
+
+    for( int j = 0; j < 8; j++ )
+    {
+        // Move to a neighbouring sector
+        if(j % 2)
+            theta_center = theta_opt + ((j+1)/2)*sector_increment;
+        else
+            theta_center = theta_opt - (j/2)*sector_increment;
+
+        arm_length += arm_increment;
+        bool found_base = false;
+        for( int i = 0 ; i < 10; i++ )
+        {
+            double delta = 0;
+            double theta = theta_center;
+            for ( int k = 0; k < num_iters_per_sector; k++ )
+            {
+                delta += increment;
+                double possible_x = goal_x + arm_length*cos(theta);
+                double possible_y = goal_y + arm_length*sin(theta);
+                double possible_yaw = atan2(goal_y - possible_y, goal_x - possible_x);
+                // 0 initialization
+                std::vector<double> possible_base(robot()->jointCount(), 0);
+                possible_base[0] = possible_x;
+                possible_base[1] = possible_y;
+                possible_base[2] = possible_yaw;
+
+                // All joint angles are assumed to be 0
+                if (collisionChecker()->isStateValid(possible_base)) {
+                    m_goal_base_poses.push_back(possible_base);
+                    found_base = true;
+                    ROS_DEBUG_NAMED("goal_base_poses", "Success on Iteration: %d", i);
+                    ROS_DEBUG_NAMED("goal_base_poses", "Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
+                    auto markers = collisionChecker()->getCollisionModelVisualization(possible_base);
+                    for( int i = 0; i < markers.size(); i++ )
+                    {
+                        markers[i].ns = "goal_base_poses";
+                        markers[i].id = i;
+                        markers[i].color = StdMsgColorToSmpl(leatherman::colors::Violet());
+                    }
+
+                    SV_SHOW_DEBUG_NAMED( "goal_base_poses", markers);
+                    break;
+                }
+                // Explore symmetrically about the optimal theta.
+                if(i%2)
+                    theta = theta_center + delta;
+                else
+                    theta = theta_center - delta;
+            }
+            if(found_base)
+                break;
+        }
+    }
+}
+
 } // namespace smpl
+
