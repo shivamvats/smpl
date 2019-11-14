@@ -211,6 +211,13 @@ auto KDLRobotModel::getPlanningLink() const -> const std::string&
     return m_tip_link;
 }
 
+const smpl::Affine3* KDLRobotModel::getLinkTransform( const std::string& _link_name )
+{
+    auto* link = GetLink(&m_robot_model, &_link_name);
+    auto frame = GetLinkTransform(&robot_state, link);
+    return frame;
+}
+
 static
 void NormalizeAngles(KDLRobotModel* model, KDL::JntArray* q)
 {
@@ -237,6 +244,7 @@ bool KDLRobotModel::computeIKSearch(
     RobotState& solution)
 {
     // transform into kinematics and convert to kdl
+    ROS_ERROR("kinematics_frame: %s, state_size: %d", m_kinematics_link->name.c_str(), start.size());
     auto* T_map_kinematics = GetLinkTransform(&this->robot_state, m_kinematics_link);
     KDL::Frame frame_des;
     tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);

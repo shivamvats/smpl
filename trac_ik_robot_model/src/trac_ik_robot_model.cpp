@@ -132,7 +132,7 @@ bool Init(
     model->m_jnt_pos_out.resize(model->m_chain.getNrOfJoints());
     model->m_free_angle = free_angle;
     model->m_search_discretization = 0.02;
-    model->m_timeout = 0.05;
+    model->m_timeout = 0.005;
 
     return true;
 }
