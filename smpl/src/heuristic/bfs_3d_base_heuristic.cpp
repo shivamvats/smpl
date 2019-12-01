@@ -23,7 +23,8 @@ Bfs3DBaseHeuristic::~Bfs3DBaseHeuristic()
     // empty to allow forward declaration of BFS_3D
 }
 
-bool Bfs3DBaseHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid, int thetac)
+bool Bfs3DBaseHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* grid,
+        int thetac, int goal_base_idx)
 {
     if (!RobotHeuristic::init(space)) {
         return false;
@@ -35,6 +36,7 @@ bool Bfs3DBaseHeuristic::init(RobotPlanningSpace* space, const OccupancyGrid* gr
 
     m_grid = grid;
     m_thetac = thetac;
+    m_goal_base_idx = goal_base_idx;
 
     m_pp = space->getExtension<PointProjectionExtension>();
     if (m_pp != NULL) {
@@ -68,7 +70,17 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
         // of goal this is. For joint state goals, we should project the start
         // state to a goal position, since we can't reliably expect goal.pose
         // to be valid.
-m_goal_base_pose = dynamic_cast<ManipLattice*> (planningSpace())->getGoalBasePose();
+        std::vector<double> m_goal_base_pose;
+        try
+        {
+            m_goal_base_pose = dynamic_cast<ManipLattice*> (planningSpace())->getGoalBasePose(m_goal_base_idx);
+        } catch (std::runtime_error)
+        {
+            int rand_valid_idx = rand() % dynamic_cast<ManipLattice*> (planningSpace())->numGoalBasePoses();
+            m_goal_base_pose = dynamic_cast<ManipLattice*> (planningSpace())->getGoalBasePose(
+                    rand_valid_idx);
+            SMPL_WARN("Choosing a random valid base pose.");
+        }
         int gx, gy, gz;
         grid()->worldToGrid(
                 m_goal_base_pose[0],

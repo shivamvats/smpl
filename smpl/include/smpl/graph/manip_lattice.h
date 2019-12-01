@@ -112,7 +112,8 @@ public:
     auto actionSpace() const -> const ManipLatticeActionSpace* { return m_actions; }
 
     auto getStartConfiguration() const -> RobotState;
-    std::vector<double> getGoalBasePose();
+    int numGoalBasePoses(){ return m_goal_base_poses.size(); }
+    std::vector<double> getGoalBasePose(int idx);
 
     void setVisualizationFrameId(const std::string& frame_id);
     auto visualizationFrameId() const -> const std::string&;
@@ -259,7 +260,6 @@ public:
     std::unordered_map<int, int> m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
     // Only storing x, y and yaw
     std::vector< std::vector<double> > m_goal_base_poses;
-    int m_base_pose_ix = 0;
 
 };
 

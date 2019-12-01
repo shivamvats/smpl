@@ -507,14 +507,14 @@ void ManipLattice::stateToCoord(
             (int)coord.size() == robot()->jointVariableCount());
 
     for (size_t i = 0; i < state.size(); ++i) {
+        if (coord[i] == m_coord_vals[i]) {
+            coord[i] = 0;
+        }
         if (m_continuous[i]) {
             auto pos_angle = normalize_angle_positive(state[i]);
 
             coord[i] = (int)((pos_angle + m_coord_deltas[i] * 0.5) / m_coord_deltas[i]);
 
-            if (coord[i] == m_coord_vals[i]) {
-                coord[i] = 0;
-            }
         } else if (!m_bounded[i]) {
             if (state[i] >= 0.0) {
                 coord[i] = (int)(state[i] / m_coord_deltas[i] + 0.5);
@@ -1110,15 +1110,14 @@ RobotState ManipLattice::getStartConfiguration() const
     }
 }
 
-std::vector<double> ManipLattice::getGoalBasePose()
+std::vector<double> ManipLattice::getGoalBasePose(int _idx)
 {
-    if( m_base_pose_ix < m_goal_base_poses.size() )
+    if( _idx < m_goal_base_poses.size() )
     {
-        SMPL_DEBUG_NAMED( G_LOG, "Base pose assigned: %d", m_base_pose_ix );
-        return m_goal_base_poses[m_base_pose_ix++];
+        return m_goal_base_poses[_idx];
     } else 
     {
-        throw std::runtime_error("Not enough valid goal base poses");
+        throw std::runtime_error("No valid base pose at this index");
     }
 }
 
@@ -1185,7 +1184,6 @@ bool ManipLattice::computeGoalBasePoses( const GoalConstraint& goal )
 {
     // Reset
     m_goal_base_poses.clear();
-    m_base_pose_ix = 0;
 
     // When planning for the right hand, walker's base yaw must be at 90
     // degrees at the goal. Hence, start sampling base positions around that region.

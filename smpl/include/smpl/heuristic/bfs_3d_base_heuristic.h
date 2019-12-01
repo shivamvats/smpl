@@ -18,7 +18,7 @@ public:
 
     virtual ~Bfs3DBaseHeuristic();
 
-    bool init(RobotPlanningSpace* space, const OccupancyGrid* grid, int theta);
+    bool init(RobotPlanningSpace* space, const OccupancyGrid* grid, int theta, int goal_base_idx=0);
 
     double inflationRadius() const { return m_inflation_radius; }
     void setInflationRadius(double radius);
@@ -61,6 +61,7 @@ public:
     std::vector< std::array<int, 3> > getPathToGoal( std::vector<double> );
 
     std::vector<double> m_goal_base_pose;
+    int m_goal_base_idx = 0;
 
 private:
 
