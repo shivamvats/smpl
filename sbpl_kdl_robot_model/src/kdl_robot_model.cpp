@@ -171,6 +171,130 @@ bool Init(
         }
     }
 
+    //model->m_max_iterations = 200;
+    model->m_max_iterations = 100;
+    model->m_kdl_eps = 0.001;
+    //model->m_kdl_eps = 10.1;
+    model->m_ik_solver = make_unique<KDL::ChainIkSolverPos_NR_JL>(
+            model->m_chain,
+            q_min,
+            q_max,
+            *model->m_fk_solver,
+            *model->m_ik_vel_solver,
+            model->m_max_iterations,
+            model->m_kdl_eps);
+
+    model->m_jnt_pos_in.resize(model->m_chain.getNrOfJoints());
+    model->m_jnt_pos_out.resize(model->m_chain.getNrOfJoints());
+    model->m_free_angle = free_angle;
+    model->m_search_discretization = 0.02;
+    model->m_timeout = 0.005;
+    //model->m_timeout = 10.005;
+
+    return true;
+}
+
+static
+bool Init(
+    KDLRobotModel* model,
+    const std::string& robot_description,
+    const std::string& base_link,
+    const std::string& kinematics_link,
+    const std::string& tip_link,
+    int free_angle)
+{
+    ROS_INFO("Initialize KDL Robot Model");
+    if (!model->m_urdf.initString(robot_description)) {
+        ROS_ERROR("Failed to parse the URDF.");
+        return false;
+    }
+
+    ROS_INFO("Initialize Robot Model");
+    urdf::JointSpec world_joint;
+    world_joint.name = "map";
+    world_joint.origin = Eigen::Affine3d::Identity(); // IMPORTANT
+    world_joint.axis = Eigen::Vector3d::Zero();
+    world_joint.type = urdf::JointType::Fixed;
+    if (!urdf::InitRobotModel(
+            &model->m_robot_model, &model->m_urdf, &world_joint))
+    {
+        ROS_ERROR("Failed to initialize Robot Model");
+        return false;
+    }
+
+    ROS_INFO("Initialize KDL tree");
+    if (!kdl_parser::treeFromUrdfModel(model->m_urdf, model->m_tree)) {
+        ROS_ERROR("Failed to parse the kdl tree from robot description.");
+        return false;
+    }
+
+    ROS_INFO("Initialize KDL chain (%s, %s)", base_link.c_str(), tip_link.c_str());
+    if (!model->m_tree.getChain(base_link, tip_link, model->m_chain)) {
+        ROS_ERROR("Failed to fetch the KDL chain for the robot. (root: %s, tip: %s)", base_link.c_str(), tip_link.c_str());
+        return false;
+    }
+    /*
+    KDL::Chain world_chain;
+    KDL::Segment s = Segment(Joint(Joint::RotX),
+                Frame(Rotation::RPY(0.0,M_PI/4,0.0),
+                          Vector(0.1,0.2,0.3) )
+                    );
+    world_chain.addSegment()
+    */
+    model->m_base_link = base_link;
+    model->m_tip_link = tip_link;
+    model->m_kinematics_link = GetLink(&model->m_robot_model, &kinematics_link);
+    if (model->m_kinematics_link == NULL) {
+        return false; // this shouldn't happen if the chain initialized successfully
+    }
+
+    ROS_INFO("Gather joints in chain");
+    std::vector<std::string> planning_joints;
+    for (auto i = (unsigned)0; i < model->m_chain.getNrOfSegments(); ++i) {
+        auto& segment = model->m_chain.getSegment(i);
+        auto& child_joint_name = segment.getJoint().getName();
+        auto* joint = GetJoint(&model->m_robot_model, &child_joint_name);
+        if (GetVariableCount(joint) > 1) {
+            ROS_WARN("> 1 variable per joint.");
+            return false;
+        }
+        if (GetVariableCount(joint) == 0) {
+            continue;
+        }
+        planning_joints.push_back(child_joint_name);
+    }
+
+    ROS_INFO("Initialize URDF Robot Model with planning joints = %s", to_string(planning_joints).c_str());
+    if (!urdf::Init(model, &model->m_robot_model, &planning_joints)) {
+        ROS_ERROR("Failed to initialize URDF Robot Model");
+        return false;
+    }
+
+    // do this after we've initialized the URDFRobotModel...
+    model->planning_link = GetLink(&model->m_robot_model, &tip_link);
+    if (model->planning_link == NULL) {
+        return false; // this shouldn't happen either
+    }
+
+    // FK solver
+    model->m_fk_solver = make_unique<KDL::ChainFkSolverPos_recursive>(model->m_chain);
+
+    // IK Velocity solver
+    model->m_ik_vel_solver = make_unique<KDL::ChainIkSolverVel_pinv>(model->m_chain);
+
+    // IK solver
+    KDL::JntArray q_min(model->jointVariableCount());
+    KDL::JntArray q_max(model->jointVariableCount());
+    for (size_t i = 0; i < model->jointVariableCount(); ++i) {
+        if (model->vprops[i].continuous) {
+            q_min(i) = -M_PI;
+            q_max(i) = M_PI;
+        } else {
+            q_min(i) = model->vprops[i].min_position;
+            q_max(i) = model->vprops[i].max_position;
+        }
+    }
+
     model->m_max_iterations = 200;
     model->m_kdl_eps = 0.001;
     model->m_ik_solver = make_unique<KDL::ChainIkSolverPos_NR_JL>(
@@ -199,6 +323,16 @@ bool KDLRobotModel::init(
     int free_angle)
 {
     return Init(this, robot_description, base_link, tip_link, free_angle);
+}
+
+bool KDLRobotModel::init(
+    const std::string& robot_description,
+    const std::string& base_link,
+    const std::string& kinematics_link,
+    const std::string& tip_link,
+    int free_angle)
+{
+    return Init(this, robot_description, base_link, kinematics_link, tip_link, free_angle);
 }
 
 auto KDLRobotModel::getBaseLink() const -> const std::string&

@@ -64,6 +64,12 @@ public:
         const std::string& base_link,
         const std::string& tip_link,
         int free_angle = DEFAULT_FREE_ANGLE_INDEX);
+    bool init(
+        const std::string& robot_description,
+        const std::string& base_link,
+        const std::string& kinematics_link,
+        const std::string& tip_link,
+        int free_angle = DEFAULT_FREE_ANGLE_INDEX);
 
     auto getBaseLink() const -> const std::string&;
     auto getPlanningLink() const -> const std::string&;
