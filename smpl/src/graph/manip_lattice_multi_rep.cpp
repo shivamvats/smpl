@@ -105,6 +105,10 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     assert(succs && costs && "successor buffer is null");
     assert(rep_id < m_multi_action_space->numReps() && "representation id outside bounds.");
 
+    if(!m_rep_expansions.count(rep_id))
+        m_rep_expansions[rep_id] = 0;
+    m_rep_expansions[rep_id]++;
+
     SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "expanding state %d", state_id);
 
     // goal state should be absorbing
@@ -184,6 +188,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
             succs->push_back(succ_state_id);
         }
         costs->push_back(cost(parent_entry, succ_entry, is_goal_succ));
+        //costs->push_back(experimentalCost(parent_entry, succ_entry, is_goal_succ, rep_id));
 
         // log successor details
         //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      succ: %zu", i);
@@ -201,28 +206,55 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
 // This cost function makes the planner minimize the number of actions (all
 // actions considered equivalent).
 int ManipLatticeMultiRep::cost(
+    ManipLatticeState* hashentry1,
+    ManipLatticeState* hashentry2,
+    bool bstate2isgoal) const
+{
+    auto& start_state = hashentry1->state;
+    auto& end_state = hashentry2->state;
+    auto defaultcostmultiplier = 1000;
+    /**
+    std::vector<double> w( start_state.size(), 1 );
+    w[0]*= 10;
+    w[1]*= 10;
+    w[2]*= 1;
+    w[3]*= 10;
+    w[4]*= 10;
+    w[5]*= 10;
+    w[6]*= 20;
+    w[7]*= 20;
+    w[8]*= 20;
+    w[9]*= 20;
+    int cost = defaultcostmultiplier*euclideandistance<double>( start_state, end_state, w );
+    **/
+    return defaultcostmultiplier;//cost;
+}
+
+// This cost function makes the planner minimize the number of actions (all
+// actions considered equivalent).
+// AND among all the paths that are of the minimum cost- it picks the path with
+// minimum representation switches.
+int ManipLatticeMultiRep::experimentalCost(
     ManipLatticeState* HashEntry1,
     ManipLatticeState* HashEntry2,
-    bool bState2IsGoal) const
+    bool bState2IsGoal,
+    int rep_id)
 {
     auto& start_state = HashEntry1->state;
     auto& end_state = HashEntry2->state;
-    auto DefaultCostMultiplier = 1000;
-    /**
-    std::vector<double> W( start_state.size(), 1 );
-    W[0]*= 10;
-    W[1]*= 10;
-    W[2]*= 1;
-    W[3]*= 10;
-    W[4]*= 10;
-    W[5]*= 10;
-    W[6]*= 20;
-    W[7]*= 20;
-    W[8]*= 20;
-    W[9]*= 20;
-    int cost = DefaultCostMultiplier*euclideanDistance<double>( start_state, end_state, W );
-    **/
-    return DefaultCostMultiplier;//cost;
+    auto defaultcostmultiplier = 1000;
+    int cost = defaultcostmultiplier;
+
+    int parent_state_id = getOrCreateState(HashEntry1->coord, HashEntry1->state);
+    if(m_pred_rep_id[parent_state_id] != rep_id)
+        cost += 1;
+
+    return cost;
+}
+
+void ManipLatticeMultiRep::setRepID(int _state_id, int _rep_id)
+{
+    m_pred_rep_id[_state_id] = _rep_id;
 }
 
 bool ManipLatticeMultiRep::checkAction(const RobotState& state, const Action& action)

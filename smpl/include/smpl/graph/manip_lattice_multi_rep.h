@@ -58,8 +58,7 @@
 namespace smpl {
 
 /// \class Discrete space constructed by expliciting discretizing each joint
-class ManipLatticeMultiRep :
-    public ManipLattice {
+class ManipLatticeMultiRep : public ManipLattice {
 public:
 
     ~ManipLatticeMultiRep();
@@ -107,12 +106,24 @@ protected:
         ManipLatticeState* HashEntry2,
         bool bState2IsGoal) const;
 
+    // Cost function to minimize the number of representation switches.
+    int experimentalCost(
+        ManipLatticeState* HashEntry1,
+        ManipLatticeState* HashEntry2,
+        bool bState2IsGoal,
+        int rep_id);
+
+    void setRepID(int state_id, int rep_id);
     bool checkAction(const RobotState& state, const Action& action);
 
 private:
 
     //ForwardKinematicsInterface* m_fk_iface = nullptr;
     MultiActionSpace* m_multi_action_space;
+
+    // Rep id of the predecessor.
+    // Used to compute cost.
+    std::unordered_map<int, int> m_pred_rep_id;
 
     /*
     // cached from robot model
