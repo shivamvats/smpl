@@ -101,11 +101,23 @@ public:
 
     ~ManipLattice();
 
+    std::unordered_map<int, int> m_rep_expansions;
+
     bool init(
         RobotModel* robot,
         CollisionChecker* checker,
         const std::vector<double>& resolutions,
         ManipLatticeActionSpace* actions);
+
+    void setArmRobotModel(RobotModel* arm)
+    {
+        m_arm_model = arm;
+    }
+
+    RobotModel* arm()
+    {
+        return m_arm_model;
+    }
 
     auto resolutions() const -> const std::vector<double>& { return m_coord_deltas; }
     auto actionSpace() -> ManipLatticeActionSpace* { return m_actions; }
@@ -255,6 +267,7 @@ public:
 
     private:
 
+    RobotModel* m_arm_model = nullptr;
     ManipLatticeActionSpace* m_actions = nullptr;
     std::unordered_map<int, int> m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
     std::unordered_map<int, int> m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };

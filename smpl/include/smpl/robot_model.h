@@ -81,6 +81,11 @@ public:
     void setPlanningJoints(const std::vector<std::string>& joints);
     const std::vector<std::string>& getPlanningJoints() const;
 
+    virtual const smpl::Affine3* getLinkTransform(const std::string& link_name)
+    {
+        throw "Not Implemented";
+    }
+
 protected:
 
     std::vector<std::string> planning_joints_;

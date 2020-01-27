@@ -6,6 +6,7 @@
 
 // project includes
 #include <smpl_urdf_robot_model/robot_state.h>
+#include <smpl_urdf_robot_model/robot_model.h>
 
 namespace smpl {
 namespace urdf {
@@ -37,6 +38,13 @@ struct URDFRobotModel :
 
     auto computeFK(const smpl::RobotState& state)
         -> Eigen::Affine3d override;
+
+    const smpl::Affine3* getLinkTransform( const std::string& link_name ) override
+    {
+        auto* link = GetLink(robot_model, &link_name);
+        auto frame = GetLinkTransform(&robot_state, link);
+        return frame;
+    }
 
     double minPosLimit(int jidx) const override;
     double maxPosLimit(int jidx) const override;

@@ -117,8 +117,12 @@ public:
     std::unordered_map<int, int> m_mprim_computations = { {0, 0 }, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
 
     ForwardKinematicsInterface* m_fk_iface = nullptr;
+    ForwardKinematicsInterface* m_fk_arm_iface = nullptr;
     InverseKinematicsInterface* m_ik_iface = nullptr;
     ManipLattice* m_manip_lattice = nullptr;
+
+    RobotModel* m_robot = nullptr;
+    RobotModel* m_arm = nullptr;
 
     bool m_mprim_enabled[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];
     double m_mprim_thresh[MotionPrimitive::NUMBER_OF_MPRIM_TYPES];

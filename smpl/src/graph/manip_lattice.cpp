@@ -933,7 +933,8 @@ void ManipLattice::clearStates()
 void ManipLattice::clearStats(){
     m_mprim_evaluations = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
     m_mprim_valid = { {0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0} };
-    m_actions->clearStats();
+    //m_actions->clearStats();
+    m_rep_expansions.clear();
 }
 
 bool ManipLattice::extractPath(

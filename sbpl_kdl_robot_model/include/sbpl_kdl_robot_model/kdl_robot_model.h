@@ -74,8 +74,6 @@ public:
     auto getBaseLink() const -> const std::string&;
     auto getPlanningLink() const -> const std::string&;
 
-    const smpl::Affine3* getLinkTransform(const std::string& link_name);
-
     bool computeIKSearch(
         const Eigen::Affine3d& pose,
         const RobotState& start,

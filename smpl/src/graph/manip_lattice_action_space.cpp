@@ -59,9 +59,21 @@ bool ManipLatticeActionSpace::init(ManipLattice* space)
     clear();
 
     RobotModel* robot = planningSpace()->robot();
+    RobotModel* arm = static_cast<ManipLattice*>(planningSpace())->arm();
+
+    m_robot = dynamic_cast<RobotModel*>(robot);
+    m_arm = dynamic_cast<RobotModel*>(arm);
 
     m_fk_iface = robot->getExtension<ForwardKinematicsInterface>();
-    m_ik_iface = robot->getExtension<InverseKinematicsInterface>();
+
+    if(arm != nullptr)
+    {
+        m_ik_iface = arm->getExtension<InverseKinematicsInterface>();
+        m_fk_arm_iface = arm->getExtension<ForwardKinematicsInterface>();
+        ROS_ERROR("Arm model set");
+    }
+    else
+        m_ik_iface = robot->getExtension<InverseKinematicsInterface>();
 
     if (!m_fk_iface) {
         SMPL_WARN("Manip Lattice Action Set requires Forward Kinematics Interface");
@@ -313,7 +325,17 @@ auto ManipLatticeActionSpace::getStartGoalDistances(const RobotState& state)
         return std::make_pair(0.0, 0.0);
     }
 
+    //Update Robot Model
     auto pose = m_fk_iface->computeFK(state);
+
+    // Update Arm Model if it exists
+    if(m_fk_arm_iface != nullptr)
+    {
+        RobotState arm_state;
+        for(int i = 3; i < state.size(); i++)
+            arm_state.push_back(state[i]);
+        auto arm_pose = m_fk_arm_iface->computeFK(arm_state);
+    }
 
     if (planningSpace()->numHeuristics() > 0) {
         RobotHeuristic* h = planningSpace()->heuristic(0);
@@ -521,28 +543,55 @@ bool ManipLatticeActionSpace::computeIkAction(
     if (!m_ik_iface) {
         return false;
     }
-
-    if (m_use_multiple_ik_solutions) {
-        //get actions for multiple ik solutions
-        std::vector<RobotState> solutions;
-        if (!m_ik_iface->computeIK(goal, state, solutions, option)) {
+    if(m_fk_arm_iface != nullptr)
+    {
+        auto goal_base_link = (m_robot->getLinkTransform("base_link")->inverse()) * goal;
+        auto goal_arm_frame = *(m_arm->getLinkTransform("base_link")) * goal_base_link ;
+        RobotState ik_sol;
+        RobotState seed;
+        for(int i = 3; i < state.size(); i++)
+            seed.push_back(state[i]);
+        if(!m_ik_iface->computeIK(goal_arm_frame, seed, ik_sol))
+        {
+            ROS_WARN("IK Failed");
             return false;
         }
-        for (auto& solution : solutions) {
-            Action action = { std::move(solution) };
+        ROS_WARN("IK succeeded");
+        RobotState soltn;
+        // Seed uses the parent's base pose
+        soltn.push_back(state[0]);
+        soltn.push_back(state[1]);
+        soltn.push_back(state[2]);
+        for(int i = 0; i < ik_sol.size(); i++)
+            soltn.push_back(ik_sol[i]);
+        Action action = {std::move(soltn)};
+        actions.push_back(std::move(action));
+    } else
+    {
+        if (m_use_multiple_ik_solutions) {
+            //get actions for multiple ik solutions
+            std::vector<RobotState> solutions;
+            if (!m_ik_iface->computeIK(goal, state, solutions, option)) {
+                return false;
+            }
+            for (auto& solution : solutions) {
+                Action action = { std::move(solution) };
+                actions.push_back(std::move(action));
+            }
+        } else {
+            //get single action for single ik solution
+            RobotState ik_sol;
+            if (!m_ik_iface->computeIK(goal, state, ik_sol)) {
+                return false;
+            }
+
+            Action action = { std::move(ik_sol) };
             actions.push_back(std::move(action));
         }
-    } else {
-        //get single action for single ik solution
-        RobotState ik_sol;
-        if (!m_ik_iface->computeIK(goal, state, ik_sol)) {
-            return false;
-        }
-
-        Action action = { std::move(ik_sol) };
-        actions.push_back(std::move(action));
     }
 
+
+    ROS_ERROR("IK Succeded");
     return true;
 }
 
@@ -733,15 +782,15 @@ bool ManipLatticeMultiActionSpace::apply(
         (void)getAction(_parent, goal_dist, start_dist, prim, _actions);
     }
 
-    /*
+    ///*
     MotionPrimitive mp;
-    mp.type = MotionPrimitive::SNAP_TO_RPY;
-    getAction(_parent, goal_dist, start_dist, mp, _actions);
-    mp.type = MotionPrimitive::SNAP_TO_XYZ;
-    getAction(_parent, goal_dist, start_dist, mp, _actions);
+    //mp.type = MotionPrimitive::SNAP_TO_RPY;
+    //getAction(_parent, goal_dist, start_dist, mp, _actions);
+    //mp.type = MotionPrimitive::SNAP_TO_XYZ;
+    //getAction(_parent, goal_dist, start_dist, mp, _actions);
     mp.type = MotionPrimitive::SNAP_TO_XYZ_RPY;
     getAction(_parent, goal_dist, start_dist, mp, _actions);
-    */
+    //*/
 
 
     if (_actions.empty()) {
