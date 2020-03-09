@@ -31,6 +31,8 @@
 /// \author Andrew Dornbush
 
 #include <smpl/occupancy_grid.h>
+#include <math.h>
+#include <ros/ros.h>
 
 // standard includes
 #include <memory>
@@ -164,6 +166,105 @@ void OccupancyGrid::reset()
     if (m_ref_counted) {
         m_counts.assign(getCellCount(), 0);
     }
+}
+
+void polarToCartesian(const double r, const double theta, const double phi, double& x, double& y, double& z)
+{
+    x = r * std::sin(theta) * std::cos(phi);
+    y = r * std::sin(theta) * std::sin(phi);
+    z = r * std::cos(theta);
+}
+
+void OccupancyGrid::getRayCast(const double _root[3], const double _goal[3],
+        double _dtheta, double _dr,
+        std::vector<double>& _ray_cast) const
+{
+    // auto start_time = smpl::clock::now();
+    double dtheta = _dtheta*M_PI/180;
+    //double delta_dist = 0.02;
+    auto goal_x = _goal[0];
+    auto goal_y = _goal[1];
+    auto goal_z = _goal[2];
+
+    auto xc = _root[0];
+    auto yc = _root[1];
+    auto zc = _root[2];
+
+    double start_r = sqrt(pow(goal_x - xc, 2) + pow(goal_y - yc, 2) + pow(goal_z - zc, 2));
+
+    std::cout<<"start r "<<start_r<<"\n";
+
+    double start_theta = atan2(goal_y - yc, goal_x - xc);
+    if (start_theta < 0 ){
+        start_theta += M_2_PI;
+    }
+
+    double start_phi = acos((goal_z -zc)/start_r);
+
+    if (start_phi < 0 ){
+        start_phi += M_2_PI;
+    }
+
+     std::cout<<"theta "<<start_theta<<" phi "<<start_phi<<"\n";
+     std::cout<<"origin "<<xc<<" "<<yc<<" "<<zc<<"\n";
+     std::cout<<"goal "<<goal_x<<" "<<goal_y<<" "<<goal_z<<"\n";
+    //
+
+    //_ray_cast.push_back(1); //to account for bias term in logistic regression
+    int ray_itr = 1;
+    double theta_radius = M_PI / 3;
+    double phi_radius = M_PI / 2;
+
+    for(double theta = start_theta - theta_radius; theta < start_theta + theta_radius; theta += dtheta)
+    {
+        for(double phi = start_phi - phi_radius; phi < start_phi + phi_radius; phi += dtheta)
+        {
+            //ROS_ERROR("%f, %f", theta, phi);
+            double r = 0.05;
+            double x, y, z;
+            polarToCartesian(r, theta, phi, x, y, z);
+
+            x = x + xc;
+            y = y + yc;
+            z = z + zc;
+
+            double ray_dist = sqrt(pow(xc - x, 2) + pow(yc - y, 2) + pow(zc - z, 2));
+            while(getDistanceFromPoint(x, y, z) > 0.0001 && ray_dist <= start_r)
+            {
+                //std::cout << getDistanceFromPoint(x,y,z) << " ";
+                r += _dr;
+                polarToCartesian(r, theta, phi, x, y, z);
+                x = x + xc;
+                y = y + yc;
+                z = z + zc;
+                ray_dist = sqrt(pow(xc - x, 2) + pow(yc - y, 2) + pow(zc - z, 2));
+                //ROS_ERROR("Ray dist: %f vs %f", ray_dist, start_r);
+            }
+
+            // std::cout<<"ray end "<<x<<" "<<y<<" "<<z<<"\n";
+            // std::cout<<"goal_rel "<<goal_x-xc<<" "<<goal_y-yc<<" "<<goal_z-zc<<"\n";
+            // std::cout<<"rel ray end "<<x-xc<<" "<<y-yc<<" "<<z-zc<<"\n";
+
+            //ray_dist = sqrt(pow(xc - x, 2) + pow(yc - y, 2) + pow(zc - z, 2));
+
+            _ray_cast.push_back(ray_dist);
+            //if(ray_dist < start_r)
+            //{
+                ////_ray_cast[ray_itr] = 0;
+                //_ray_cast.push_back(0.0);
+            //} else
+            //{
+                ////_ray_cast[ray_itr] = 1;
+                //_ray_cast.push_back(1.0);
+            //}
+            //ROS_WARN("ray cast val: %f, %f, %d", ray_dist, start_r, _ray_cast.back());
+
+            ray_itr++;
+        }
+    }
+
+    // clock::duration elapsed_secs = clock::now()-start_time;
+    // std::cout<<"Ray Tracing Time "<<to_seconds(elapsed_secs)<<"\n";
 }
 
 /// Count the number of obstacles in the occupancy grid.
@@ -352,7 +453,8 @@ auto OccupancyGrid::getOccupiedVoxelsVisualization() const -> visual::Marker
     return MakeCubesMarker(
             std::move(voxels),
             m_grid->resolution(),
-            visual::Color{ 0.8f, 0.3f, 0.5f, 1.0f },
+            //visual::Color{ 0.8f, 0.3f, 0.5f, 1.0f },
+            visual::Color{ 1.0f, 1.0f, 1.0f, 1.0f },
             getReferenceFrame(),
             "occupied_voxels");
 }

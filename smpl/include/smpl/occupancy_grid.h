@@ -71,6 +71,7 @@ public:
     OccupancyGrid& operator=(const OccupancyGrid& rhs);
     OccupancyGrid& operator=(OccupancyGrid&& rhs) = default;
 
+    void getRayCast(const double root[3], const double goal[3], double dtheta, double dr, std::vector<double>& ray_cast) const;
     auto getDistanceField() const -> const std::shared_ptr<DistanceMapInterface>&
     { return m_grid; }
 
