@@ -207,7 +207,7 @@ int Bfs3DHeuristic::GetGoalHeuristic(int state_id)
     Eigen::Vector3i dp;
     grid()->worldToGrid(p.x(), p.y(), p.z(), dp.x(), dp.y(), dp.z());
 
-    int heuristic = getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
+    int heuristic = m_cost_per_cell * getBfsCostToGoal(*m_bfs, dp.x(), dp.y(), dp.z());
     SMPL_DEBUG_NAMED(LOG, "BFS Heuristic: h(%f, %f, %f) = %d", p.x(), p.y(), p.z(), heuristic);
     return heuristic;
 }
@@ -424,7 +424,8 @@ int Bfs3DHeuristic::getBfsCostToGoal(const BFS_3D& bfs, int x, int y, int z) con
         return Infinity;
     }
     else {
-        return m_cost_per_cell * bfs.getDistance(x, y, z);
+        //return m_cost_per_cell * bfs.getDistance(x, y, z);
+        return bfs.getDistance(x, y, z);
     }
 }
 

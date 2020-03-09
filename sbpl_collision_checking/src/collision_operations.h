@@ -124,6 +124,7 @@ bool CheckVoxelsCollisions(
             ROS_DEBUG_NAMED(COP_LOGGER, " dist^2: %0.3f -> ok!", obs_dist);
             continue; // no collision -> ok!
         }
+        //ROS_ERROR(" dist^2: %0.3f -> collision", obs_dist);
 
         if (s->isLeaf()) {
             if (s->parent_state->index == -1) { // meta-leaf

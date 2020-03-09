@@ -30,6 +30,7 @@
 /// \author Benjamin Cohen
 /// \author Andrew Dornbush
 
+#include <ros/ros.h>
 #include <smpl/graph/manip_lattice.h>
 
 // standard includes
@@ -849,6 +850,9 @@ bool ManipLattice::setStart(const RobotState& state)
     }
 
     // check if the start configuration is in collision
+    std::stringstream ss;
+    for(auto& val : state )
+        ss<< val<< " ";
     if (!collisionChecker()->isStateValid(state, true)) {
         auto* vis_name = "invalid_start";
         SV_SHOW_WARN_NAMED(vis_name, collisionChecker()->getCollisionModelVisualization(state));

@@ -20,7 +20,10 @@
 
 namespace smpl {
 
-ManipLatticeMultiRep::~ManipLatticeMultiRep() { }
+    ManipLatticeMultiRep::~ManipLatticeMultiRep() 
+    {
+        m_collision_file.close();
+    }
 
 bool ManipLatticeMultiRep::init(
         RobotModel* _robot,
@@ -87,6 +90,8 @@ bool ManipLatticeMultiRep::init(
 
     m_multi_action_space = action_space;
 
+    m_collision_file.open("children_in_collision.txt", std::ios::app);
+
     return true;
 }
 
@@ -104,6 +109,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     assert(state_id >= 0 && state_id < m_states.size() && "state id out of bounds");
     assert(succs && costs && "successor buffer is null");
     assert(rep_id < m_multi_action_space->numReps() && "representation id outside bounds.");
+    //ros::Duration(0.5).sleep();
 
     if(!m_rep_expansions.count(rep_id))
         m_rep_expansions[rep_id] = 0;
@@ -154,6 +160,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "  actions: %zu", actions.size());
 
     // check actions for validity
+    int collisions = 0;
     RobotCoord succ_coord(robot()->jointVariableCount(), 0);
     for (size_t i = 0; i < actions.size(); ++i) {
         auto& action = actions[i];
@@ -162,6 +169,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
         //SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "      waypoints: %zu", action.size());
 
         if (!checkAction(parent_entry->state, action)) {
+            collisions++;
             continue;
         }
 
@@ -201,6 +209,7 @@ void ManipLatticeMultiRep::GetSuccs( int state_id,
     if (goal_succ_count > 0) {
         SMPL_DEBUG_NAMED(G_EXPANSIONS_LOG, "Got %d goal successors!", goal_succ_count);
     }
+    m_collision_file<< collisions<< " collisions out of "<< actions.size()<< "\n";
 }
 
 // This cost function makes the planner minimize the number of actions (all

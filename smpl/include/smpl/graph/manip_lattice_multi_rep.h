@@ -39,6 +39,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
 
 // system includes
 #include <boost/functional/hash.hpp>
@@ -124,6 +125,8 @@ private:
     // Rep id of the predecessor.
     // Used to compute cost.
     std::unordered_map<int, int> m_pred_rep_id;
+
+    std::ofstream m_collision_file;
 
     /*
     // cached from robot model
