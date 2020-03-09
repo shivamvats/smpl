@@ -70,7 +70,6 @@ void Bfs3DBaseHeuristic::updateGoal(const GoalConstraint& goal)
         // of goal this is. For joint state goals, we should project the start
         // state to a goal position, since we can't reliably expect goal.pose
         // to be valid.
-        std::vector<double> m_goal_base_pose;
         try
         {
             m_goal_base_pose = dynamic_cast<ManipLattice*> (planningSpace())->getGoalBasePose(m_goal_base_idx);

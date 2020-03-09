@@ -230,6 +230,7 @@ public:
             const visual::Color& color)
         -> std::vector<visual::Marker>;
 
+    bool compute_base_poses = true;
     protected:
     ForwardKinematicsInterface* m_fk_iface = nullptr;
 

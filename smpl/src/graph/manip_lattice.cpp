@@ -51,6 +51,8 @@
 
 #include <leatherman/utils.h>
 
+#define LOG "goal_base_poses"
+
 auto std::hash<smpl::ManipLatticeState>::operator()(
     const argument_type& s) const -> result_type
 {
@@ -1141,11 +1143,12 @@ bool ManipLattice::setGoalPose(const GoalConstraint& gc)
     SMPL_DEBUG_NAMED(G_LOG, "    rpy (radians): (%0.2f, %0.2f, %0.2f)", roll, pitch, yaw);
     SMPL_DEBUG_NAMED(G_LOG, "    tol (radians): %0.3f", gc.rpy_tolerance[0]);
 
-    if(!computeGoalBasePoses(gc))
-    {
-        ROS_ERROR("Could not compute any valid base poses around the goal. Planning is not feasible.");
-        return false;
-    }
+    if(compute_base_poses)
+        if(!computeGoalBasePoses(gc))
+        {
+            ROS_ERROR("Could not compute any valid base poses around the goal. Planning is not feasible.");
+            return false;
+        }
     // set the (modified) goal
     return RobotPlanningSpace::setGoal(gc);
 }
@@ -1201,15 +1204,16 @@ bool ManipLattice::computeGoalBasePoses( const GoalConstraint& goal )
     // Start with theta_opt and search in the corresponding 45 sector.
     //  Increment by 45 and repeat.
     const double sector_increment = smpl::angles::to_radians(45.0);
-    constexpr int num_iters_per_sector = 100;
+    constexpr int num_iters_per_sector = 200; //1000
     constexpr double increment = smpl::angles::to_radians(22.5) / num_iters_per_sector;
-    double arm_increment = 0.01;
+    double arm_increment = 0.01; //0.01
     double arm_length = 0.45;
 
     double base_x = 0, base_y = 0;
     double theta_opt = M_PI/2 + ya;
     double theta_center = theta_opt;
 
+    int idx = 0;
     for( int j = 0; j < 8; j++ )
     {
         // Move to a neighbouring sector
@@ -1218,10 +1222,10 @@ bool ManipLattice::computeGoalBasePoses( const GoalConstraint& goal )
         else
             theta_center = theta_opt - (j/2)*sector_increment;
 
-        arm_length += arm_increment;
         bool found_base = false;
         for( int i = 0 ; i < 10; i++ )
         {
+            arm_length += arm_increment;
             double delta = 0;
             double theta = theta_center;
             for ( int k = 0; k < num_iters_per_sector; k++ )
@@ -1237,20 +1241,25 @@ bool ManipLattice::computeGoalBasePoses( const GoalConstraint& goal )
                 possible_base[2] = possible_yaw;
 
                 // All joint angles are assumed to be 0
-                if (collisionChecker()->isStateValid(possible_base)) {
+                if (collisionChecker()->isStateValid(possible_base, true)) {
                     m_goal_base_poses.push_back(possible_base);
                     found_base = true;
-                    ROS_DEBUG_NAMED("goal_base_poses", "Success on Iteration: %d", i);
-                    ROS_DEBUG_NAMED("goal_base_poses", "Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
+                    //std::stringstream ss;
+                    //for(auto& val : possible_base)
+                        //ss<< val<< " ";
+                    //ROS_ERROR_STREAM("Goal base state: "<<  ss.str());
+                    //ROS_ERROR_NAMED(LOG, "Success on Iteration: %d", i);
+                    //ROS_ERROR_NAMED(LOG, "Optimal yaw: %f, Found yaw: %f", theta_opt, theta);
                     auto markers = collisionChecker()->getCollisionModelVisualization(possible_base);
                     for( int i = 0; i < markers.size(); i++ )
                     {
                         markers[i].ns = "goal_base_poses";
-                        markers[i].id = i;
+                        markers[i].id = idx++;
                         markers[i].color = StdMsgColorToSmpl(leatherman::colors::Violet());
                     }
 
-                    SV_SHOW_DEBUG_NAMED( "goal_base_poses", markers);
+                    //SV_SHOW_DEBUG_NAMED( "goal_base_poses", markers);
+                    SV_SHOW_INFO(markers);
                     break;
                 }
                 // Explore symmetrically about the optimal theta.

@@ -60,8 +60,9 @@ public:
     std::vector< std::array<int, 3> > getPathToGoal(int state_id);
     std::vector< std::array<int, 3> > getPathToGoal( std::vector<double> );
 
-    std::vector<double> m_goal_base_pose;
-    int m_goal_base_idx = 0;
+    // In RobotHeuristic
+    //std::vector<double> m_goal_base_pose;
+    //int m_goal_base_idx = 0;
 
 private:
 

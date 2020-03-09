@@ -81,6 +81,9 @@ public:
     virtual int GetStartHeuristic(int state_id) = 0;
     virtual int GetFromToHeuristic(int from_id, int to_id) = 0;
     ///@}
+    int offset = 0;
+    std::vector<double> m_goal_base_pose {};
+    int m_goal_base_idx = 0;
 
 private:
 
